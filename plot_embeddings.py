@@ -18,10 +18,11 @@ seed = int(sys.argv[4]) if len(sys.argv) > 4 else None
 save_path_suffix = "_seed_"+str(sys.argv[4]) if len(sys.argv) > 4 else ""
 
 split_dir = embedding_dir.split("/")
-split_dir.remove("")
+split_dir = [i for i in split_dir if i != ""]
 lang_folder="-".join(languages)
 save_path = "umap-figures/"+str(split_dir[-1])+save_path_suffix+"/"+lang_folder+"/"
-#print(f'Saving to {save_path}')
+print(f'Loading from {embedding_dir}')
+print(f'Saving to {save_path}')
 
 # UMAP settings
 if seed is not None:
