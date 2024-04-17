@@ -5,30 +5,36 @@ from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import umap
+import pacmap
 from sklearn.preprocessing import StandardScaler
 from pathlib import Path
+from numpy import array as array
 
 # Embeddings file path
 embedding_dir = sys.argv[1]
 languages = sorted(sys.argv[2].split(","))
+save_path = sys.argv[3] if len(sys.argv) > 3 else None
 # downsampling if needed
-sample = int(sys.argv[3]) if len(sys.argv) > 3 else len(languages)*1000
-seed = int(sys.argv[4]) if len(sys.argv) > 4 else None
-save_path_suffix = "_seed_"+str(sys.argv[4]) if len(sys.argv) > 4 else ""
+#sample = int(sys.argv[3])*len(languages) if len(sys.argv) > 3 else len(languages)*2000
+sample = int(sys.argv[4]) if len(sys.argv) > 4 else 2000
+seed = int(sys.argv[5]) if len(sys.argv) > 5 else None
+save_path_suffix = "_seed_"+str(sys.argv[5]) if len(sys.argv) > 5 else ""
 
 split_dir = embedding_dir.split("/")
 split_dir = [i for i in split_dir if i != ""]
 lang_folder="-".join(languages)
-save_path = "umap-figures/"+str(split_dir[-1])+save_path_suffix+"/"+lang_folder+"/"
-print(f'Loading from {embedding_dir}')
-print(f'Saving to {save_path}')
+model_name = split_dir[-1]   # for figure title
+if save_path is None:
+    save_path = "TEST_pacmap_figures/"+str(split_dir[-1])+save_path_suffix+"/"+lang_folder+"/"
+print(f'Loading from {embedding_dir}', flush=True)
+print(f'Saving to {save_path}', flush=True)
+x = input("CHECK THAT SAVE PATH IS CORRECT AND PRESS ENTER TO CONTINUE")
 
-# UMAP settings
+# PacMAP settings
 if seed is not None:
-    reducer = umap.UMAP(random_state=seed)
+    reducer = pacmap.PaCMAP(n_neighbors=30, apply_pca=True, MN_ratio=2, random_state=seed)
 else:
-    reducer = umap.UMAP()
+    reducer = pacmap.PaCMAP(n_neighbors=30, apply_pca=True, MN_ratio=2)
 color_palette = sns.color_palette("Paired", 1000)
 
 # Read data
@@ -36,24 +42,29 @@ dfs = []
 for filename in os.listdir(embedding_dir):
     file = os.path.join(embedding_dir, filename)
     if any([l in filename for l in languages]):   # only take languages of intrest
-        print(f'Reading {file}...')
+        print(f'Reading {file}...', flush=True)
         # Get data
         df = pd.read_csv(file, sep="\t")
+        df = df.sample(n=sample)
         #df = df[np.random.choice(df.shape[0], sample, replace=False)]
         dfs.append(df)
-        
+
 
 # concat and sample
 df = pd.concat(dfs)
 del dfs
-df = df.sample(n=sample)
-print(len(df))
-print(df.head())
+print("len: ",len(df), flush=True)
+print(df.head(), flush=True)
 
 # change from str to list
-df["preds"] = df["preds"].apply(
-        lambda x: eval(x)
-    )
+if False:#"xlmr" in model_name:      # This is stupid as hell but xlmr saved the results as a numpy tuple not as a list
+    df["preds"] = df["preds"].apply(
+        lambda a: eval(a)[0].tolist()
+        )
+else:
+    df["preds"] = df["preds"].apply(
+            lambda x: eval(x)
+        )
 df = df.explode("preds")  # Explode multilabels
 
 # Values from string to list and flatten, get umap embeds
@@ -61,8 +72,9 @@ for column in ["embed_first","embed_half","embed_last"]:
     df[column] = df[column].apply(
         lambda x: np.array([float(y) for y in eval(x)[0]])
     )
-    scaled_embeddings = StandardScaler().fit_transform(df[column].tolist())
-    red_embedding = reducer.fit_transform(scaled_embeddings)
+    #scaled_embeddings = StandardScaler().fit_transform(df[column].tolist())
+    scaled_embeddings = df[column].tolist()
+    red_embedding = reducer.fit_transform(scaled_embeddings, init='random')
     df["x_"+column] = red_embedding[:, 0]
     df["y_"+column] = red_embedding[:, 1]
 
@@ -70,12 +82,12 @@ for column in ["embed_first","embed_half","embed_last"]:
 #fig, axes = plt.subplots(ncols=3, nrows=1)
 for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     plt.figure()
-    plt.title(column)
-    print(index)
+    plt.title(model_name+": "+column)
+    print(column, flush=True)
     legend_elements = []
     for lang in languages:
         i = 0
-        marker = {"en":"x", "fr":".", "zh":"1", "ur": "+", "fi":"*", "tr": "d"}[lang]
+        marker = {"en":"x", "fr":".", "zh":"1", "ur": "+", "fi":"*", "tr": "d", "fa": "_", "sv":"3"}[lang]
         legend_elements.append(Line2D([0],[0], color='w', markeredgecolor='black', markerfacecolor='black', marker=marker, label=lang, markersize=10))
         for label, group in df[df.lang==lang].groupby("preds"):
             if label==[] or label=="[]":
@@ -104,4 +116,4 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     #axes[index] = plt.gcf()
     plt.close()
 
-#fig.savefig("full.png")
+# fig.savefig("full.png")

@@ -10,23 +10,21 @@ from pathlib import Path
 
 lang = sys.argv[1]
 fold = sys.argv[2]
-save_path = sys.argv[3] if len(sys.argv) >= 4 else "/scratch/project_2009199/embeddings-and-umap/model_embeds/xlmr-fold-"+str(fold)+"/"
+data = sys.argv[3]
+save_path = sys.argv[4] if len(sys.argv) > 4 else "/scratch/project_2009199/umap-embeddings/model_embeds/xlmr-fold-"+str(fold)+"/"
 
 base_model_name ="xlm-roberta-base"
 model_name = "/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold)
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-dataset = datasets.load_from_disk("/scratch/project_2009199/sampling_oscar/final/"+str(lang)+".hf")
-dataset = dataset.filter(lambda example, idx: idx % 10 == 0, with_indices=True)
+dataset = datasets.load_from_disk(data+str(lang)+".hf")
+print(dataset)
+#dataset = dataset.filter(lambda example, idx: idx % 10 == 1, with_indices=True)
 
 model = AutoModelForSequenceClassification.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(base_model_name)
 model.to(device)
 
-# originally using different data where downsampling was language dependent
-#downsample = {"en":25, "fr": 48, "zh": 18}
-#dataset = datasets.load_dataset("TurkuNLP/register_oscar", data_files={lang:f'{lang}/{lang}_00000.jsonl.gz'}, cache_dir="/scratch/project_2009199/cache")
-#dataset = dataset.filter(lambda example, idx: idx % downsample[lang] == 0, with_indices=True)
 
 import math
 
@@ -39,8 +37,11 @@ def predict(d,lang):
     with torch.no_grad():
         output = model(d["encoded"]["input_ids"].to(device), output_hidden_states=True)
     logits = output["logits"].cpu().tolist()
+    #print(logits)
     sigm = np.array([sigmoid(i) for i in logits[0]])
-    pred = [labels[i] for i in np.where(sigm > 0.5)]
+    #print(sigm)
+    pred = [labels[i] for i in np.where(sigm > 0.5)[0]]
+    #print(pred)
     hidden_states = output["hidden_states"]
     indices = np.array([0, len(hidden_states)//2, -1], dtype=int)
     embed = [torch.mean(hidden_states[i],axis=1).cpu().tolist() for i in indices]
@@ -50,6 +51,8 @@ def predict(d,lang):
 
 
 def tokenize(d):
+    if d["text"] is None:
+        return tokenizer(text_target = "", return_tensors='pt', truncation=True)
     return tokenizer(d["text"], return_tensors='pt', truncation=True)
 
 
