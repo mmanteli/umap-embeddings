@@ -24,24 +24,31 @@ data_name=$(basename "$2")
 
 case "$model_name" in
     xlmr)
-        srun python3 embeds-xlmr.py $lang $fold $data_path "/scratch/project_2009199/umap-embeddings/TEST_model_embeds/${data_name}/xlmr-fold-${fold}/"
+        srun python3 embeds-xlmr.py $lang $fold $data_path "/scratch/project_2009199/umap-embeddings/model_embeds/${data_name}/${model_name}-fold-${fold}/"
         seff $SLURM_JOBID
-        mkdir -p logs/TEST_embeds_${model_name}_${fold}_${data_name}/${lang}/
-        mv logs/${SLURM_JOBID}.* logs/TEST_embeds_${model_name}_${fold}_${data_name}/${lang}/
+        mkdir -p logs/embeds_${model_name}_${fold}_${data_name}/${lang}/
+        mv logs/${SLURM_JOBID}.* logs/embeds_${model_name}_${fold}_${data_name}/${lang}/
         exit 0
         ;;
-    bge)
-        srun python3 embeds-bge.py $lang $data_path "/scratch/project_2009199/umap-embeddings/TEST_model_embeds/${data_name}/bge-m3/"
+    xlmr-long)
+        srun python3 embeds-xlmr-long-run.py $lang $fold $data_path "/scratch/project_2009199/umap-embeddings/model_embeds/${data_name}/${model_name}-fold-${fold}/"
         seff $SLURM_JOBID
-        mkdir -p logs/TEST_embeds_${model_name}_${data_name}/${lang}/
-        mv logs/${SLURM_JOBID}.* logs/TEST_embeds_${model_name}_${data_name}/${lang}/
+        mkdir -p logs/embeds_${model_name}_${fold}_${data_name}/${lang}/
+        mv logs/${SLURM_JOBID}.* logs/embeds_${model_name}_${fold}_${data_name}/${lang}/
+        exit 0
+        ;;
+    bge-m3)
+        srun python3 embeds-bge.py $lang $data_path "/scratch/project_2009199/umap-embeddings/model_embeds/${data_name}/${model_name}/"
+        seff $SLURM_JOBID
+        mkdir -p logs/embeds_${model_name}_${data_name}/${lang}/
+        mv logs/${SLURM_JOBID}.* logs/embeds_${model_name}_${data_name}/${lang}/
         exit 0
         ;;
     e5)
-        srun python3 embeds-e5.py $lang $data_path "/scratch/project_2009199/umap-embeddings/TEST_model_embeds/${data_name}/e5/"
+        srun python3 embeds-e5.py $lang $data_path "/scratch/project_2009199/umap-embeddings/model_embeds/${data_name}/${model_name}/"
         seff $SLURM_JOBID
-        mkdir -p logs/TEST_embeds_${model_name}_${data_name}/${lang}/
-        mv logs/${SLURM_JOBID}.* logs/TEST_embeds_${model_name}_${data_name}/${lang}/
+        mkdir -p logs/embeds_${model_name}_${data_name}/${lang}/
+        mv logs/${SLURM_JOBID}.* logs/embeds_${model_name}_${data_name}/${lang}/
         exit 0
         ;;
     *)
