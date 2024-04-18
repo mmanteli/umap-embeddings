@@ -21,7 +21,7 @@ seed = int(sys.argv[5]) if len(sys.argv) > 5 else None
 save_path_suffix = "_seed_"+str(sys.argv[5]) if len(sys.argv) > 5 else ""
 
 
-remove_small_class=True
+remove_small_class=False
 
 split_dir = embedding_dir.split("/")
 split_dir = [i for i in split_dir if i != ""]
