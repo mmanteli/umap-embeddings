@@ -3,7 +3,7 @@ model_embeds/
 reports/
 .ipynb_checkpoints/
 logs/
-old_model_embeds
+old_model_embeds*
 old-umap-figures
 old-logs
 TEST*
