@@ -1,12 +1,13 @@
 #!/bin/bash
 
 
-models=("bge" "e5" "xlmr")
-#models=("e5")
+#models=("bge" "e5" "xlmr")
+models=("xlmr-long")
 #data=("/scratch/project_2009199/sampling_oscar/final_cleaned/" "/scratch/project_2009199/sampling_oscar/final_uncleaned/" "/scratch/project_2009199/sampling_oscar/final_reg_oscar/")
-#data=("/scratch/project_2009199/sampling_oscar/final_core/")
-data=("/scratch/project_2009199/sampling_oscar/final_dirty/")
-folds=(1 5 7 8)
+data=("/scratch/project_2009199/sampling_oscar/final_core/")
+#data=("/scratch/project_2009199/sampling_oscar/final_dirty/")
+#folds=(1 5 7 8)
+folds=(7)
 langs=("en" "fa" "fi" "fr" "sv" "tr" "ur" "zh")
 #langs=("en" "fr" "tr" "fi" "sv")
 
