@@ -44,7 +44,7 @@ color_palette = sns.color_palette("Paired", 1000)
 dfs = []
 for filename in os.listdir(embedding_dir):
     file = os.path.join(embedding_dir, filename)
-    if any([l in filename for l in languages]):   # only take languages of intrest
+    if any([l in filename.replace("embeds.tsv","") for l in languages]):   # only take languages of intrest
         print(f'Reading {file}...', flush=True)
         # Get data
         df = pd.read_csv(file, sep="\t")
@@ -93,7 +93,7 @@ for column in ["embed_first","embed_half","embed_last"]:
 #fig, axes = plt.subplots(ncols=3, nrows=1)
 for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     plt.figure()
-    plt.title(model_name+": "+column)
+    plt.title(model_name+": "+column+", data:"+str(split_dir[-2]))
     print(column, flush=True)
     legend_elements = []
     for lang in languages:
