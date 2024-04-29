@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import umap
+import re
 from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 from numpy import array as array
@@ -28,11 +29,11 @@ def argparser():
     ap.add_argument('--sample', type=int, metavar='INT', default=2000,
                     help='How much to sample from each language.')
     ap.add_argument('--model_name', type=str, metavar='STR', default=None, required=True,
-                    help='Name of the model for plotting.')
+                    help='Name of the model for plot titles.')
     ap.add_argument('--data_name', type=str, metavar='STR', default=None,
                     help='If given, added to plot title.')
-    ap.add_argument('--use_pred', '--use_preds', type=str, metavar='BOOL', default="True",
-                    help='Use predictions to plot. False to use true labels.')
+    ap.add_argument('--use_column', '--column', type=str, metavar='STR', default="preds", choices=["preds","labels", "preds_best"],
+                    help='Which column containing labels to use, "preds" "labels", "preds_best".')
     ap.add_argument('--remove_multilabel', type=str, metavar='BOOL', default="True",
                     help='Remove docs with multilabel predictions.')
     ap.add_argument('--n_neighbors', type=int, metavar='INT', default=15,
@@ -49,7 +50,6 @@ options = argparser().parse_args(sys.argv[1:])
 languages_as_list = options.languages.split(",")
 languages_as_list.sort()
 options.labels.sort()
-options.use_pred = bool(eval(options.use_pred))
 options.remove_multilabel = bool(eval(options.remove_multilabel))
 if options.embeddings[-1] == "/":
     options.embeddings = options.embeddings[:-1]
@@ -57,11 +57,11 @@ if options.save_path is None:
     lang_folder = "-".join(languages_as_list)
     label_folder = "" if options.labels==all_labels else "-large-labels" if options.labels==big_labels else "-"+"-".join(options.labels)
     options.save_path = options.embeddings.replace("model_embeds", "umap-figures") + "/"+lang_folder+label_folder+"/"
-wrt_column = {True:"preds",False:"labels"}[options.use_pred]
+wrt_column = options.use_column
 print("-----------------INFO-------------------", flush=True)
 print(f'Loading from: {options.embeddings+"/"}', flush=True)
 print(f'Saving to {options.save_path}', flush=True)
-print(f'Plotting based on: {wrt_column}', flush=True)
+print(f'Plotting based on column: {wrt_column}', flush=True)
 print("-----------------INFO-------------------", flush=True)
 
 # UMAP settings
@@ -98,15 +98,18 @@ for filename in os.listdir(options.embeddings):
     if any([l in filename.replace(".tsv","") for l in options.languages]):   # only take languages of intrest
         print(f'Reading {file}...', flush=True)
         df = pd.read_csv(file, sep="\t")
+        # rename the best f1 column from preds_{value} to preds_best
+        df.rename(columns=lambda x: re.sub('_0.*','_best',x), inplace=True)
         # sample down to 2*sample to make running things faster
         df = do_sampling(df,options.sample, r=2)
-        # from str to list, wrt_column = preds or labels depeding on param --use_pred
-        print(len(df))
+        # from str to list, wrt_column contains the column we are interested in
+        print(df)
+        print(df.columns)
         try:
             df[wrt_column] = df[wrt_column].apply(
                 lambda x: eval(x)
             )
-        except:
+        except:   # CORE labels separated by white space, and NA maps to NaN in eval
             df[wrt_column] = df[wrt_column].apply(
                 lambda x: ["NA" if i=="nan" else str(i) for i in str(x).split(" ")]
             )
