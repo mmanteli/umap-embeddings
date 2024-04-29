@@ -21,7 +21,7 @@ def argparser():
                     choices=["CORE", "cleaned", "register_oscar"],help='Which data to use.')
     ap.add_argument('--language','--lang', type=str, default=None, required=True, metavar='str',
                     help='which language to use.')
-    ap.add_argument('--f1_limits', type=json.loads, metavar='ARRAY-LIKE', default=[0.3,0.6, 0.05],
+    ap.add_argument('--f1_limits', type=json.loads, metavar='ARRAY-LIKE', default=[0.3,0.65, 0.05],
                     help='[lower_limit, upper_limit, step] for f1 optimisation. 0.5 saved always.')
     ap.add_argument('--seed', type=int, metavar='INT', default=123,
                     help='Seed for reproducible outputs, like for sampling.')
@@ -43,7 +43,8 @@ label_dict = {"xlmr": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
 
 data_dict = lambda lang: {"CORE": f'/scratch/project_2009199/sampling_oscar/final_core/{lang}.hf',
                           "cleaned": f'/scratch/project_2009199/sampling_oscar/final_cleaned/{lang}.hf',
-                          "register_oscar": f'/scratch/project_2009199/sampling_oscar/final_reg_oscar/{lang}.hf'}
+                          "register_oscar": f'/scratch/project_2009199/sampling_oscar/final_reg_oscar/{lang}.hf',
+                          "dirty": f'/scratch/project_2009199/sampling_oscar/final_dirty/{lang}.hf'}
 
 
 options = argparser().parse_args(sys.argv[1:])
@@ -53,7 +54,7 @@ options.model_path = model_dict(options.fold)[options.model_name]
 options.data_path = data_dict(options.language)[options.data_name]
 options.labels = label_dict[options.model_name]
 if options.save_path is None:
-    if options.data_name in ["xlmr", "xlmr-long"]:
+    if options.model_name in ["xlmr", "xlmr-long"]:
         options.save_path = f'/scratch/project_2009199/umap-embeddings/model_embeds/{options.data_name}/{options.model_name}-fold-{options.fold}/'
     else:
        options.save_path = f'/scratch/project_2009199/umap-embeddings/model_embeds/{options.data_name}/{options.model_name}/' 
@@ -153,8 +154,8 @@ if extract_labels: #options.data_name != "cleaned":
     preds = [options.labels[np.where(np.array(sublist) == 1)[0]].tolist() for sublist in best_predictions]
     df["preds_"+str(np.round(best_threshold, decimals=1))] = preds
 
-# save results
-Path(save_path).mkdir(parents=True, exist_ok=True)
 
-df = pd.DataFrame(results)
-df.to_csv(save_path+lang+"_embeds.tsv", sep="\t", header=True)
+#print(df)
+# save results
+Path(options.save_path).mkdir(parents=True, exist_ok=True)
+df.to_csv(str(options.save_path)+str(options.language)+"_embeds.tsv", sep="\t", header=True)
