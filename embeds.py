@@ -18,7 +18,7 @@ def argparser():
     ap.add_argument('--fold','--fold_number', type=int, metavar="INT", default=None,
                     help='Fold for xlmr and xlmr-long models')
     ap.add_argument('--data_name', type=str, metavar='STR', default=None, 
-                    choices=["CORE", "cleaned", "register_oscar"],help='Which data to use.')
+                    choices=["CORE", "cleaned", "register_oscar", "dirty"],help='Which data to use.')
     ap.add_argument('--language','--lang', type=str, default=None, required=True, metavar='str',
                     help='which language to use.')
     ap.add_argument('--f1_limits', type=json.loads, metavar='ARRAY-LIKE', default=[0.3,0.65, 0.05],
@@ -34,7 +34,7 @@ def argparser():
 model_dict = lambda fold: {"xlmr":"/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold),
                         "xlmr-long":"/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large_testing_longer_run/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold),
                         "e5":"/scratch/project_2009199/pytorch-registerlabeling/models/intfloat/multilingual-e5-large/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42",
-                        "bge-m3":"/scratch/project_2009199/bge-m3-multi-test"}
+                        "bge-m3":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42"}
 
 label_dict = {"xlmr": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]), 
               "xlmr-long": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
@@ -62,7 +62,7 @@ if options.save_path is None:
 
 num_labels=len(options.labels)
 label2id = {v:k for k,v in enumerate(options.labels)}
-extract_labels = False if options.data_name=="cleaned" else True
+extract_labels = False if options.data_name in ["cleaned", "dirty"] else True
 base_model_name ="xlm-roberta-base"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
