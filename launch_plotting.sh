@@ -1,22 +1,19 @@
 #!/bin/bash
 
-models=("bge-m3" "e5" "xlmr")
-folds=(1 2 3 4 5 6 7 8 9 10)
-langs=("en,fr,zh" "en,fi" "en,fi,tr" "fa,ur,sv", "en,fi,fr,sv,tr")
+# Define arrays for model names and language combinations
+#model_names=("bge-m3" "e5" "xlmr-fold-1" "xlmr-fold-5" "xlmr-fold-7" "xlmr-fold-8")
+model_names=("bge-m3" "e5" "xlmr-fold-1" "xlmr-fold-7" "xlmr-long-fold-1" "xlmr-long-fold-7")
+data_names=("cleaned")
+langs_combinations=("en,fi,fr,sv,tr")
+wrt_column="preds"
 
-for model in "${models[@]}"; do
-    if [ "$model" == "bge-m3" ] || [ "$model" == "e5" ]; then
-        for lang in "${langs[@]}"; do
-            sbatch run_plotting.sh $lang $model
-            sleep 1
+# Loop through each model name
+for model_name in "${model_names[@]}"; do
+    # Loop through each data name
+    for data_name in "${data_names[@]}"; do
+        # Loop through each language combination
+        for langs in "${langs_combinations[@]}"; do
+            sbatch run_plotting.sh $model_name $data_name $langs $wrt_column
         done
-    else
-        for lang in "${langs[@]}"; do
-            for fold in "${folds[@]}"; do
-                sbatch run_plotting.sh $lang "${model}-fold-${fold}"
-                sleep 1
-            done
-            #sleep 15
-        done
-    fi
+    done
 done

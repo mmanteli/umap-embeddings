@@ -49,17 +49,19 @@ def argparser():
 options = argparser().parse_args(sys.argv[1:])
 languages_as_list = options.languages.split(",")
 languages_as_list.sort()
+options.languages_as_list= languages_as_list
 options.labels.sort()
 options.remove_multilabel = bool(eval(options.remove_multilabel))
 if options.embeddings[-1] == "/":
     options.embeddings = options.embeddings[:-1]
 if options.save_path is None:
-    lang_folder = "-".join(languages_as_list)
+    lang_folder = "-".join(options.languages_as_list)
     label_folder = "" if options.labels==all_labels else "-large-labels" if options.labels==big_labels else "-"+"-".join(options.labels)
     options.save_path = options.embeddings.replace("model_embeds", "umap-figures") + "/"+lang_folder+label_folder+"/"
 wrt_column = options.use_column
 print("-----------------INFO-------------------", flush=True)
 print(f'Loading from: {options.embeddings+"/"}', flush=True)
+print(f'Using languages {options.languages_as_list}')
 print(f'Saving to {options.save_path}', flush=True)
 print(f'Plotting based on column: {wrt_column}', flush=True)
 print("-----------------INFO-------------------", flush=True)
@@ -87,7 +89,7 @@ def do_sampling(df, n, r=1):
         return df.sample(n=r*n)
     except:
         if r==1:  # only report at the final step
-            print(f'Unable to sample to {n} < len(df) = {len(df)}.', flush=True)
+            print(f'Unable to sample to {n} > len(df) = {len(df)}.', flush=True)
         return df
 
 
@@ -95,7 +97,8 @@ def do_sampling(df, n, r=1):
 dfs = []
 for filename in os.listdir(options.embeddings):
     file = os.path.join(options.embeddings, filename)
-    if any([l in filename.replace(".tsv","") for l in options.languages]):   # only take languages of intrest
+    #if any([l in filename.replace(".tsv","") for l in options.languages_as_list]):   # only take languages of intrest
+    if filename.split("_")[0] in options.languages_as_list:
         print(f'Reading {file}...', flush=True)
         df = pd.read_csv(file, sep="\t")
         # rename the best f1 column from preds_{value} to preds_best
@@ -103,8 +106,8 @@ for filename in os.listdir(options.embeddings):
         # sample down to 2*sample to make running things faster
         df = do_sampling(df,options.sample, r=2)
         # from str to list, wrt_column contains the column we are interested in
-        print(df)
-        print(df.columns)
+        #print(df)
+        #print(df.columns)
         try:
             df[wrt_column] = df[wrt_column].apply(
                 lambda x: eval(x)
@@ -114,17 +117,17 @@ for filename in os.listdir(options.embeddings):
                 lambda x: ["NA" if i=="nan" else str(i) for i in str(x).split(" ")]
             )
         # remove multilabel
-        print(len(df))
         if options.remove_multilabel:
             df = df[df[wrt_column].apply(lambda x: len(x) < 2 and len(x) > 0)]
-            if options.labels != all_labels:     # some classes need to be removed
+        else:
+            # only remove empty, explode multilabel
+            df = df.explode(wrt_column)
+            df = df[df[wrt_column].apply(lambda x: len(x) > 0)]
+        if options.labels != all_labels:     # some classes need to be removed
                 print(f'Removing all classes except {options.labels}', flush=True)
                 df = df[df[wrt_column].apply(lambda x: x not in options.labels)]  # remove unwanted classes
-        else:
-            # only remove empty
-            df = df[df[wrt_column].apply(lambda x: len(x) > 0)]
         # sample to options.sample
-        print(len(df))
+        #print(len(df))
         df = do_sampling(df,options.sample) 
         dfs.append(df)
 
@@ -134,7 +137,8 @@ df = pd.concat(dfs)
 del dfs
 print("len: ",len(df), flush=True)
 print(df.head(), flush=True)
-df = df.explode(wrt_column)  # Does something and is needed
+print("label distribution: ", np.unique(df[wrt_column], return_counts=True))
+df = df.explode(wrt_column)  # Does something and is needed here even if done before
 
 # Values from string to list and flatten, get umap embeds
 for column in ["embed_first","embed_half","embed_last"]:
@@ -162,7 +166,7 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     print(column, flush=True)
     legend_elements = []
     plt.xlabel("wrt. "+wrt_column+",n_neigh = "+str(options.n_neighbors))
-    for lang in languages_as_list:
+    for lang in options.languages_as_list:
         i = 0
         marker = ","#{"en":"x", "fr":".", "zh":"1", "ur": "+", "fi":"*", "tr": "_", "fa": "d", "sv":"3"}[lang]
         #legend_elements.append(Line2D([0],[0], color='w', markeredgecolor='black', markerfacecolor='black', marker=marker, label=lang, markersize=10))
@@ -179,7 +183,7 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
                 c=[color_palette[i]],
                 alpha=0.3,
             )
-            if lang==languages_as_list[-1]:  #for last language add the legend
+            if lang==options.languages_as_list[-1]:  #for last language add the legend
                 legend_elements.append(Line2D([0],[0], color='w', markerfacecolor=color_palette[i], marker="s", label=label))
             i +=1
 
@@ -189,7 +193,7 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
 
     Path(options.save_path).mkdir(parents=True, exist_ok=True)
     
-    fig_save_path = options.save_path+"fig_"+embed_name[column]+"_"+wrt_column
+    fig_save_path = options.save_path+"labels_"+wrt_column+"_"+embed_name[column]
     if options.seed != None:
         fig_save_path += "_seed_"+str(options.seed)
         
@@ -197,7 +201,7 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     plt.close()
 
 
-color_palette = sns.color_palette("hls", len(languages_as_list))
+color_palette = sns.color_palette("hls", len(options.languages_as_list))
 for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     plt.figure()
     plt.figure(figsize=(10,7.5))
@@ -235,10 +239,10 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
 
     Path(options.save_path).mkdir(parents=True, exist_ok=True)
     
-    fig_save_path = options.save_path+"langs_fig_"+embed_name[column]+"_"+wrt_column
+    fig_save_path = options.save_path+"langs_"+wrt_column+"_"+embed_name[column]
     if options.seed != None:
         fig_save_path += "_seed_"+str(options.seed)
         
     plt.savefig(fig_save_path+".png")
     plt.close()
-#fig.savefig("full.png")
+
