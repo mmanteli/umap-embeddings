@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # Note: not all langs in all data, this is to show all possibilities
-models=("bge-m3" "e5" "xlmr" "xlmr-long")
-folds=(1 2 3 4 5 6 7 8 9 10)
-data=("CORE" "register_oscar" "dirty" "cleaned")
+models=("xlmr" "xlmr-long")
+folds=(6 7 8 9 10)
+#data=("CORE" "register_oscar" "dirty" "cleaned")
+data=("balanced_register_oscar")
 
 
 

@@ -3,7 +3,7 @@
 # Define arrays for model names and language combinations
 #model_names=("bge-m3" "e5" "xlmr-fold-1" "xlmr-fold-5" "xlmr-fold-7" "xlmr-fold-8")
 model_names=("bge-m3" "e5" "xlmr-fold-1" "xlmr-fold-7" "xlmr-long-fold-1" "xlmr-long-fold-7")
-data_names=("cleaned")
+data_names=("balanced_register_oscar")
 langs_combinations=("en,fi,fr,sv,tr")
 wrt_column="preds"
 

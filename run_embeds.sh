@@ -5,8 +5,8 @@
 #SBATCH --partition=gpusmall
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=5G
-#SBATCH --gres=gpu:a100:1,nvme:5
+#SBATCH --mem-per-cpu=10G
+#SBATCH --gres=gpu:a100:1,nvme:6
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH -o logs/%j.out
@@ -22,6 +22,9 @@ case $data_name in
         langs=("en" "fi" "fr" "sv" "tr")
         ;;
     register_oscar)
+        langs=("en" "fr" "ur" "zh")
+        ;;
+    balanced_register_oscar)
         langs=("en" "fr" "ur" "zh")
         ;;
     cleaned)

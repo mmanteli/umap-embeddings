@@ -18,7 +18,8 @@ def argparser():
     ap.add_argument('--fold','--fold_number', type=int, metavar="INT", default=None,
                     help='Fold for xlmr and xlmr-long models')
     ap.add_argument('--data_name', type=str, metavar='STR', default=None, 
-                    choices=["CORE", "cleaned", "register_oscar", "dirty"],help='Which data to use.')
+                    choices=["CORE", "cleaned", "register_oscar", "dirty", "balanced_register_oscar"],
+                    help='Which data to use.')
     ap.add_argument('--language','--lang', type=str, default=None, required=True, metavar='str',
                     help='which language to use.')
     ap.add_argument('--f1_limits', type=json.loads, metavar='ARRAY-LIKE', default=[0.3,0.65, 0.05],
@@ -39,11 +40,13 @@ model_dict = lambda fold: {"xlmr":"/scratch/project_2009199/pytorch-registerlabe
 label_dict = {"xlmr": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]), 
               "xlmr-long": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
               "e5":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
-              "bge-m3":np.array(["HI","ID","IN","IP","LY","MT","NA","OP","SP"])}
+              "bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
+# old bge = np.array(["HI","ID","IN","IP","LY","MT","NA","OP","SP"])
 
 data_dict = lambda lang: {"CORE": f'/scratch/project_2009199/sampling_oscar/final_core/{lang}.hf',
                           "cleaned": f'/scratch/project_2009199/sampling_oscar/final_cleaned/{lang}.hf',
                           "register_oscar": f'/scratch/project_2009199/sampling_oscar/final_reg_oscar/{lang}.hf',
+                          "balanced_register_oscar":f'/scratch/project_2009199/sampling_oscar/final_balanced_reg_oscar/{lang}.hf',
                           "dirty": f'/scratch/project_2009199/sampling_oscar/final_dirty/{lang}.hf'}
 
 
