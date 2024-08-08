@@ -8,7 +8,7 @@ import sys
 import re
 from sklearn.preprocessing import StandardScaler
 from pathlib import Path
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter,BooleanOptionalAction
 
 
 
@@ -31,12 +31,14 @@ def argparser():
                     help='How much to sample from each language.')
     ap.add_argument('--model_name', type=str, metavar='STR', default=None, required=True,
                     help='Name of the model for plot titles.')
-    ap.add_argument('--data_name', type=str, metavar='STR', default=None,
-                    help='If given, added to plot title.')
+    ap.add_argument('--data_name', type=str, metavar='STR', default=None, required=True,
+                    help='Needed for the plot titles.')
     ap.add_argument('--use_column', '--column', type=str, metavar='STR', default="preds_best", choices=["preds","labels", "preds_best"],
-                    help='Which column containing labels to use, "preds" "labels", "preds_best".')
-    ap.add_argument('--remove_multilabel', type=str, metavar='BOOL', default="True",
+                    help='Which column containing labels to use, "preds"=th0.5, "labels"=TP, "preds_best"=preds with best th.')
+    ap.add_argument('--remove_multilabel',action=BooleanOptionalAction, default="True",
                     help='Remove docs with multilabel predictions.')
+    ap.add_argument('--truncate_text', '--truncate', action=BooleanOptionalAction, default="True",
+                    help='Truncate texts for visualisation.')
     ap.add_argument('--n_neighbors', type=int, metavar='INT', default=15,
                     help='How many neighbors for UMAP.')
     ap.add_argument('--seed', type=int, metavar='INT', default=None,
@@ -112,9 +114,9 @@ def read_data(options):
     # concat and remove multilabel
     df = pd.concat(dfs)
     del dfs
-    print("len: ",len(df), flush=True)
-    print(df.head(), flush=True)
-    print(df.tail(), flush=True)
+    #print("len: ",len(df), flush=True)
+    #print(df.head(), flush=True)
+    #print(df.tail(), flush=True)
     print("label distribution: ", np.unique(df[wrt_column], return_counts=True))
     print("language distribution: ", np.unique(df["lang"], return_counts=True))
     df = df.explode(wrt_column)  # Does something and is needed here even if done before
@@ -141,18 +143,20 @@ def apply_umap(df, reducer):
 
 def wrap_text(text, width, truncate=True):
     """Wrap text with a given width."""
-    text_ = text[0:500]
-    return '<br>'.join([text_[i:i+width] for i in range(0, len(text_), width)])
+    if truncate:
+        text = text[0:500]
+    return '<br>'.join([text[i:i+width] for i in range(0, len(text), width)])
 
 
-def plot_embeddings(df_plot, column, wrt, output_dir):
-    
-    df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row['text'], 80)}", axis=1)
+#def plot_embeddings(df_plot, column, wrt="preds_best", color="preds_best", truncate=True, output_dir="./figures/"):
 
-    fig = px.scatter(df_plot, x='x_'+column, y='y_'+column, color=wrt,
-                     title='Embeddings',
+def plot_embeddings(df_plot, column, color, options):
+    df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row['text'], 80, truncate=options.truncate_text)}", axis=1)
+
+    fig = px.scatter(df_plot, x='x_'+column, y='y_'+column, color=color,
+                     title='Embeddings with {options.model_name} from {options.data_name}',
                      #hover_data={"hover_text":True, "x_"+column:False, "y_"+column:False, "lang"=False},
-                     hover_data={"lang":True, "preds_best":True, "hover_text":True, "text":False, "x_"+column:False, "y_"+column:False},
+                     hover_data={"lang":True, options.use_column:True, "hover_text":True, "text":False, "x_"+column:False, "y_"+column:False},
                      #hover_name='hover_text', hover_data={"x_"+column:True, "y_"+column:True,'lang': True, 'text': True},
                      width=2000, height=1500)  # Increased size for better visibility
 
@@ -162,9 +166,9 @@ def plot_embeddings(df_plot, column, wrt, output_dir):
     )
     
     # Save the figure as an HTML file
-    html_file = os.path.join(output_dir, f'{wrt}_{column}_kuva2.html')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    html_file = os.path.join(options.save_path, f'{color}_wrt_{options.use_column}_{column}.html')
+    if not os.path.exists(options.save_path):
+        os.makedirs(options.save_path)
     fig.write_html(html_file)
     
     # Add custom JavaScript for copying to clipboard
@@ -206,50 +210,37 @@ def plot_embeddings(df_plot, column, wrt, output_dir):
         """)
 
 def main():
-    """
-    csv_file_path = 'All_Stories_embeddings.csv'
-    output_dir = 'cluster_visualizations'
-    n_clusters = 1500
-
-    df, embeddings = load_and_prepare_data(csv_file_path)
-    embeddings_reduced = reduce_dimensions(embeddings)
-    cluster_labels = cluster_embeddings(embeddings_reduced, n_clusters)
-    combined_text = df['combined_text'].tolist()  # Assuming you have this column
-    plot_embeddings(embeddings_reduced, df['index'].tolist(), combined_text, cluster_labels, output_dir)
-    """
-    
+    # read arguments and process them a bit more
     options = argparser().parse_args(sys.argv[1:])
     languages_as_list = options.languages.split(",")
     languages_as_list.sort()
     options.languages_as_list= languages_as_list
     options.labels.sort()
-    options.remove_multilabel = bool(eval(options.remove_multilabel))
-    if options.embeddings[-1] == "/":
-        options.embeddings = options.embeddings[:-1]
-    if options.save_path is None:
-        lang_folder = "-".join(options.languages_as_list)
-        label_folder = "" if options.labels==all_labels else "-large-labels" if options.labels==big_labels else "-"+"-".join(options.labels)
-        options.save_path = options.embeddings.replace("model_embeds", "umap-figures") + "/"+lang_folder+label_folder+"/"
+    #options.remove_multilabel = bool(eval(options.remove_multilabel))
     print("-----------------INFO-------------------", flush=True)
     print(f'Loading from: {options.embeddings+"/"}', flush=True)
     print(f'Using languages {options.languages_as_list}')
     print(f'Saving to {options.save_path}', flush=True)
     print(f'Plotting based on column: {options.use_column}', flush=True)
     print("-----------------INFO-------------------", flush=True)
+
+    # read the data
+    df = read_data(options)
+    
     # UMAP settings
     if options.seed is not None:
         reducer = umap.UMAP(random_state=options.seed, n_neighbors=options.n_neighbors)
     else:
         reducer = umap.UMAP(n_neighbors=options.n_neighbors)
-
-    df = read_data(options)
+    # apply umap to embeddings
     apply_umap(df, reducer)
 
-
+    # plot wrt predictions/truelabels, whichever given
+    for column in embed_name.keys():  #(df_plot, column, color, options):
+        plot_embeddings(df, column, options.use_column, options)
+    # plot wrt language
     for column in embed_name.keys():
-        plot_embeddings(df, column, options.use_column, "testi")
-    for column in embed_name.keys():
-        plot_embeddings(df, column, "lang", "testi")
+        plot_embeddings(df, column, "lang", options)
         
 
 if __name__ == "__main__":
