@@ -24,10 +24,12 @@ def argparser():
                     help='which language to use.')
     ap.add_argument('--f1_limits', type=json.loads, metavar='ARRAY-LIKE', default=[0.3,0.65, 0.05],
                     help='[lower_limit, upper_limit, step] for f1 optimisation. 0.5 saved always.')
+    ap.add_argument('--return_text',type=int, default=1, choices=[0,1],
+                    help='Set to 1 to return the text as well.')
     ap.add_argument('--seed', type=int, metavar='INT', default=123,
                     help='Seed for reproducible outputs, like for sampling.')
     ap.add_argument('--save_path', type=str, metavar='DIR', default=None,
-                    help='Where to save results. If none given, going to umap_embeddings/{data_name}/{model_name}/')
+                    help='Where to save results. If none given, going to umap_embeddings/with-text/{data_name}/{model_name}/')
     return ap
 
 
@@ -43,11 +45,11 @@ label_dict = {"xlmr": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
               "bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
 # old bge = np.array(["HI","ID","IN","IP","LY","MT","NA","OP","SP"])
 
-data_dict = lambda lang: {"CORE": f'/scratch/project_2009199/sampling_oscar/final_core/{lang}.hf',
-                          "cleaned": f'/scratch/project_2009199/sampling_oscar/final_cleaned/{lang}.hf',
-                          "register_oscar": f'/scratch/project_2009199/sampling_oscar/final_reg_oscar/{lang}.hf',
-                          "balanced_register_oscar":f'/scratch/project_2009199/sampling_oscar/final_balanced_reg_oscar/{lang}.hf',
-                          "dirty": f'/scratch/project_2009199/sampling_oscar/final_dirty/{lang}.hf'}
+data_dict = lambda lang: {"CORE": f'/scratch/project_2002026/amanda/sampling_oscar/final_core/{lang}.hf',
+                          "cleaned": f'/scratch/project_2002026/amanda/sampling_oscar/final_cleaned/{lang}.hf',
+                          "register_oscar": f'/scratch/project_2002026/amanda/sampling_oscar/final_reg_oscar/{lang}.hf',
+                          "balanced_register_oscar":f'/scratch/project_2002026/amanda/sampling_oscar/final_balanced_reg_oscar/{lang}.hf',
+                          "dirty": f'/scratch/project_2002026/amanda/sampling_oscar/final_dirty/{lang}.hf'}
 
 
 options = argparser().parse_args(sys.argv[1:])
@@ -102,7 +104,10 @@ def predict(d, extract_labels=True):
             for l in d["labels"]:
                 if l in label2id.keys():
                     true_labels[label2id[l]] = 1
-        return {"id":d["id"], "lang":d["lang"], "prediction":sigm, "labels": d["labels"], "vec_labels": true_labels, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
+        if options.return_text:
+            return {"id":d["id"], "lang":d["lang"], "text":d["text"], "prediction":sigm, "labels": d["labels"], "vec_labels": true_labels, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
+        else:
+            return {"id":d["id"], "lang":d["lang"], "prediction":sigm, "labels": d["labels"], "vec_labels": true_labels, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
     return {"id":d["id"], "lang":d["lang"], "prediction":sigm, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
 
 
