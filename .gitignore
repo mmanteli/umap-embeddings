@@ -1,4 +1,5 @@
 venv/
+cenv/
 model_embeds/
 reports/
 .ipynb_checkpoints/
@@ -11,3 +12,4 @@ tests*
 testing*
 sobbing*
 testi*
+*examples
