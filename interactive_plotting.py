@@ -154,9 +154,9 @@ def plot_embeddings(df_plot, column, color, options):
     df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row['text'], 80, truncate=options.truncate_text)}", axis=1)
 
     fig = px.scatter(df_plot, x='x_'+column, y='y_'+column, color=color,
-                     title='Embeddings with {options.model_name} from {options.data_name}',
+                     title=f'Embeddings with {options.model_name} from {options.data_name}',
                      #hover_data={"hover_text":True, "x_"+column:False, "y_"+column:False, "lang"=False},
-                     hover_data={"lang":True, options.use_column:True, "hover_text":True, "text":False, "x_"+column:False, "y_"+column:False},
+                     hover_data={"hover_text":True,"lang":True, options.use_column:True, "text":False, "x_"+column:False, "y_"+column:False},
                      #hover_name='hover_text', hover_data={"x_"+column:True, "y_"+column:True,'lang': True, 'text': True},
                      width=2000, height=1500)  # Increased size for better visibility
 
