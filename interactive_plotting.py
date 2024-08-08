@@ -141,33 +141,20 @@ def apply_umap(df, reducer):
 
 def wrap_text(text, width, truncate=True):
     """Wrap text with a given width."""
-    text_ = text[0:200]
+    text_ = text[0:500]
     return '<br>'.join([text_[i:i+width] for i in range(0, len(text_), width)])
 
 
 def plot_embeddings(df_plot, column, wrt, output_dir):
-    #df_plot = df[['x_'+column, 'y_'+column])
-    #df_plot['index'] = index
-    #df_plot['text'] = df["text"]
-    #df_plot['cluster'] = cluster_labels
-
-    # Create hover text with index and wrapped story text
-    df_plot['hover_text'] = df_plot.apply(lambda row: f"<b>Lang:</b> {row['lang']}<br><b>index:</b> {row['Unnamed: 0']}<br><b> Story:</b> {wrap_text(row['text'], 80)}", axis=1)
-    #print(np.array(df_plot['hover_text'])[0], np.array(df_plot["hover_text"])[-1])
-
-    # These work...
-    #print(df_plot[['hover_text']].values)
-    #exit()
+    
+    df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row['text'], 80)}", axis=1)
 
     fig = px.scatter(df_plot, x='x_'+column, y='y_'+column, color=wrt,
                      title='Embeddings',
-                     hover_name='hover_text', hover_data={"x_"+column:True, "y_"+column:True,'lang': True, 'text': True},
+                     #hover_data={"hover_text":True, "x_"+column:False, "y_"+column:False, "lang"=False},
+                     hover_data={"lang":True, "preds_best":True, "hover_text":True, "text":False, "x_"+column:False, "y_"+column:False},
+                     #hover_name='hover_text', hover_data={"x_"+column:True, "y_"+column:True,'lang': True, 'text': True},
                      width=2000, height=1500)  # Increased size for better visibility
-
-    # Update the hovertemplate to use the custom hover text and display as a block element
-    fig.update_traces(marker=dict(size=8), 
-                      hovertemplate="<div style='white-space:normal; width:300px;'>%{customdata[0]}<extra></extra></div>",
-                      customdata=df_plot[['hover_text']].values) 
 
     fig.update_layout(
         legend_title_text='Cluster',
