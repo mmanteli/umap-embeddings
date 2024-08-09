@@ -1,5 +1,6 @@
 venv/
 cenv/
+env/
 model_embeds/
 reports/
 .ipynb_checkpoints/
