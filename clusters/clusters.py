@@ -10,9 +10,33 @@ import umap
 import json
 from sklearn.preprocessing import StandardScaler
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from spherecluster import VonMisesFisherMixture
 
 all_labels = ["HI","ID","IN","IP","LY","MT","NA","OP","SP"]
 big_labels = ["HI","ID","IN","IP","NA","OP"]
+
+
+def argparser():
+    ap = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+    ap.add_argument('--embeddings', '--data', type=str, default=None, required=True, metavar='DIR',
+                    help='Path to directory where precalculated embeddings are. Lang name assumed in the filename.')
+    ap.add_argument('--languages','--langs','--language','--lang', type=str, metavar='LIST', default=None, required=True,
+                    help='Which languages to download from --embeddings, give as: en,fr,zh.')
+    ap.add_argument('--labels', type=json.loads, metavar='ARRAY-LIKE', default=all_labels,
+                    help='Labels. Give as: \'["IN","NA"]\'. Others discarded. Works only with --remove_multilabel.')
+    ap.add_argument('--sample', type=int, metavar='INT', default=2000,
+                    help='How much to sample from each language.')
+    ap.add_argument('--use_column', '--column', type=str, metavar='STR', default="preds_best", choices=["preds","labels", "preds_best"],
+                    help='Which column containing labels to use, "preds"=th0.5, "labels"=TP, "preds_best"=preds with best th.')
+    ap.add_argument('--remove_multilabel', default="True",
+                    help='Remove docs with multilabel predictions.')
+    ap.add_argument('--n_neighbors', type=int, metavar='INT', default=15,
+                    help='How many neighbors for UMAP.')
+    ap.add_argument('--seed', type=int, metavar='INT', default=None,
+                    help='Seed for reproducible outputs. Default=None, UMAP runs faster with no seed.')
+    ap.add_argument('--save_path', type=str, metavar='DIR', default=None,
+                    help='Where to save results.')
+    return ap
 
 def do_sampling(df, n, r=1):
     """
@@ -86,32 +110,12 @@ def read_data(options):
     return df
 
 
-def argparser():
-    ap = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    ap.add_argument('--embeddings', '--data', type=str, default=None, required=True, metavar='DIR',
-                    help='Path to directory where precalculated embeddings are. Lang name assumed in the filename.')
-    ap.add_argument('--languages','--langs','--language','--lang', type=str, metavar='LIST', default=None, required=True,
-                    help='Which languages to download from --embeddings, give as: en,fr,zh.')
-    ap.add_argument('--labels', type=json.loads, metavar='ARRAY-LIKE', default=all_labels,
-                    help='Labels. Give as: \'["IN","NA"]\'. Others discarded. Works only with --remove_multilabel.')
-    ap.add_argument('--sample', type=int, metavar='INT', default=2000,
-                    help='How much to sample from each language.')
-    ap.add_argument('--use_column', '--column', type=str, metavar='STR', default="preds_best", choices=["preds","labels", "preds_best"],
-                    help='Which column containing labels to use, "preds"=th0.5, "labels"=TP, "preds_best"=preds with best th.')
-    ap.add_argument('--remove_multilabel', default="True",
-                    help='Remove docs with multilabel predictions.')
-    ap.add_argument('--n_neighbors', type=int, metavar='INT', default=15,
-                    help='How many neighbors for UMAP.')
-    ap.add_argument('--seed', type=int, metavar='INT', default=None,
-                    help='Seed for reproducible outputs. Default=None, UMAP runs faster with no seed.')
-    ap.add_argument('--save_path', type=str, metavar='DIR', default=None,
-                    help='Where to save results.')
-    return ap
+
 
 
 def apply_umap(df, reducer):
     # Values from string to list and flatten, get umap embeds
-    for column in ["embed_first","embed_half","embed_last"]:
+    for column in ["embed_last"]:
         df[column] = df[column].apply(
             lambda x: np.array([float(y) for y in eval(x)[0]])
         )
@@ -119,8 +123,9 @@ def apply_umap(df, reducer):
         red_embedding = reducer.fit_transform(scaled_embeddings)
         df["x_"+column] = red_embedding[:, 0]
         df["y_"+column] = red_embedding[:, 1]
+        df["z_"+column] = red_embedding[:, 2]
 
-def apply_von_mises(embeddings,n, labels):
+def apply_von_mises(embeddings, labels, n):
     """
      Attributes
     |  ----------
@@ -149,11 +154,28 @@ def apply_von_mises(embeddings,n, labels):
     |
     |      If posterior_type='soft' is used, this matrix will be dense and the
     |      column values correspond to soft clustering weights.
+    transform(self, X, y=None)
+    |      Transform X to a cluster-distance space.
+    |      In the new space, each dimension is the cosine distance to the cluster
+    |      centers.  Note that even if X is sparse, the array returned by
+    |      `transform` will typically be dense.
+    |
+    |      Parameters
+    |      ----------
+    |      X : {array-like, sparse matrix}, shape = [n_samples, n_features]
+    |          New data to transform.
+    |
+    |      Returns
+    |      -------
+    |      X_new : array, shape [n_samples, k]
+    |          X transformed in the new space.
 
     """
-    vmf_soft = VonMisesFisherMixture(n_clusters=n, posterior_type='soft').fit_transform(embeddings) ###posterior_type='hard'
+    vmf_soft = VonMisesFisherMixture(n_clusters=n, posterior_type='hard', verbose=True, normalize=True).fit(embeddings) ###posterior_type='hard'
     #vmf_labels = vmf_soft.labels_
+    print("Kappa value for clustering (larger value better)")
     print(vmf.concentrations_)
+    print("score wrt true labels (larger value better)")
     print(vmf.score(embeddings, labels))
 
 
@@ -169,17 +191,18 @@ def main():
     
     # UMAP settings
     if options.seed is not None:
-        reducer = umap.UMAP(random_state=options.seed, n_neighbors=options.n_neighbors)
+        reducer = umap.UMAP(random_state=options.seed, n_neighbors=options.n_neighbors, n_components=3)
     else:
-        reducer = umap.UMAP(n_neighbors=options.n_neighbors)
+        reducer = umap.UMAP(n_neighbors=options.n_neighbors,n_components=3)
     # apply umap to embeddings
     apply_umap(df, reducer)
 
-    embeddings = np.array(df[["x_embed_last", "y_embed_last"]])
+    embeddings = np.random.rand(options.sample*2,3) #np.array(df[["x_embed_last", "y_embed_last", "z_embed_last"]])
     labels = np.array(df[["preds_best"]])
 
-    print(embeddings[0:2])
+    print(embeddings.shape)
     print(labels[0:10])
+    apply_von_mises(embeddings, labels, len(options.labels))
 
 if __name__ == "__main__":
     main()
