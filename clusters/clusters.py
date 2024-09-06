@@ -3,7 +3,8 @@ import pandas as pd
 import sys
 import os
 import re
-from sklearn.metrics import silhouette_score, adjusted_rand_score, homogeneity_score, v_measure_score, completeness_score
+from sklearn.metrics import silhouette_score, adjusted_rand_score, homogeneity_score, v_measure_score, completeness_score, f1_score
+from sklearn.metrics import adjusted_rand_score
 from statistics import mean
 #import matplotlib.pyplot as plt
 import umap
@@ -11,6 +12,7 @@ import json
 from sklearn.preprocessing import StandardScaler
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from spherecluster import VonMisesFisherMixture
+import matplotlib.pyplot as plt
 
 all_labels = ["HI","ID","IN","IP","LY","MT","NA","OP","SP"]
 big_labels = ["HI","ID","IN","IP","NA","OP"]
@@ -171,12 +173,42 @@ def apply_von_mises(embeddings, labels, n):
     |          X transformed in the new space.
 
     """
-    vmf_soft = VonMisesFisherMixture(n_clusters=n, posterior_type='hard', verbose=True, normalize=True).fit(embeddings) ###posterior_type='hard'
+    vmf_soft = VonMisesFisherMixture(n_clusters=n, posterior_type='soft', verbose=True, normalize=True, random_state=123).fit(embeddings,labels) ###posterior_type='hard'
     #vmf_labels = vmf_soft.labels_
+    clustered_embeds = vmf_soft.transform(embeddings)
+    clustered_labels = vmf_soft.labels_
+
+    print(clustered_labels[0:10])
+    print(labels[0:10])
     print("Kappa value for clustering (larger value better)")
-    print(vmf.concentrations_)
-    print("score wrt true labels (larger value better)")
-    print(vmf.score(embeddings, labels))
+    print(vmf_soft.concentrations_)
+    print("ARI?")
+    print(adjusted_rand_score(labels, clustered_labels))
+    #print("score wrt true labels (larger value better)")
+    #print(vmf_soft.score(embeddings, labels))
+
+    #vmf_soft = VonMisesFisherMixture(n_clusters=2, posterior_type='soft', n_init=20)
+    #vmf_soft.fit(X)
+    exit()
+    print(clustered_embeds.shape)
+    
+    exit()
+    fig = plt.figure(figsize=(8, 6))
+
+    ax = fig.add_subplot(1, 1, 5, aspect='equal', projection='3d',
+        adjustable='box-forced', xlim=[-1.1, 1.1], ylim=[-1.1, 1.1],
+        zlim=[-1.1, 1.1])
+    ax.scatter(X[vmf_soft.labels_ == vmf_soft_mu_0_idx, 0], X[vmf_soft.labels_ == vmf_soft_mu_0_idx, 1], X[vmf_soft.labels_ == vmf_soft_mu_0_idx, 2], c='r')
+    ax.scatter(X[vmf_soft.labels_ == vmf_soft_mu_1_idx, 0], X[vmf_soft.labels_ == vmf_soft_mu_1_idx, 1], X[vmf_soft.labels_ == vmf_soft_mu_1_idx, 2], c='b')
+    ax.set_aspect('equal')
+    plt.title('soft-movMF clustering')
+    plt.savefig("testi.png")
+
+    # vmf_soft.cluster_centers_
+    # vmf_soft.labels_
+    # vmf_soft.weights_
+    # vmf_soft.concentrations_
+    # vmf_soft.inertia_
 
 
 def main():
@@ -202,7 +234,14 @@ def main():
 
     print(embeddings.shape)
     print(labels[0:10])
-    apply_von_mises(embeddings, labels, len(options.labels))
+    unique_labels = np.unique(labels)
+    print(f'num labels in this sample = {len(unique_labels)}')
+
+    label2id = {k:v for k,v in zip(unique_labels, range(len(unique_labels)))}
+    print(label2id)
+    labels_num = [label2id[i[0]] for i in labels]
+    print(labels_num[0:10])
+    apply_von_mises(embeddings, labels_num, len(np.unique(labels)))
 
 if __name__ == "__main__":
     main()
