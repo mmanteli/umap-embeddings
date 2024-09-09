@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 from numpy import array as array
 import json
+from sklearn.decomposition import PCA
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 all_labels = ["HI","ID","IN","IP","LY","MT","NA","OP","SP"]
@@ -40,6 +41,8 @@ def argparser():
                     help='How many neighbors for UMAP.')
     ap.add_argument('--seed', type=int, metavar='INT', default=None,
                     help='Seed for reproducible outputs. Default=None, UMAP runs faster with no seed.')
+    ap.add_argument('--pca', type=int, metavar='INT (NUM DIM)', default=None, 
+                    help="Should pca be applied, as the number of dimensions. Defaults to None=no pca.")
     ap.add_argument('--save_path', type=str, metavar='DIR', default=None,
                     help='Where to save results. Defaults to sameas --embeddings with model_embeds => umap_figures and langs added.')
     return ap
@@ -146,6 +149,9 @@ for column in ["embed_first","embed_half","embed_last"]:
         lambda x: np.array([float(y) for y in eval(x)[0]])
     )
     scaled_embeddings = StandardScaler().fit_transform(df[column].tolist())
+    if options.pca is not None and options.pca > 1:
+        pca = PCA(n_components=options.pca)
+        scaled_embeddings = pca.fit_transform(scaled_embeddings)
     red_embedding = reducer.fit_transform(scaled_embeddings)
     df["x_"+column] = red_embedding[:, 0]
     df["y_"+column] = red_embedding[:, 1]
@@ -196,6 +202,8 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     fig_save_path = options.save_path+"labels_"+wrt_column+"_"+embed_name[column]
     if options.seed != None:
         fig_save_path += "_seed_"+str(options.seed)
+    if options.pca is not None:
+        fig_save_path += "_pca_"+str(options.pca)
         
     plt.savefig(fig_save_path+".png")
     plt.close()
@@ -242,6 +250,8 @@ for index, column in enumerate(["embed_first","embed_half","embed_last"]):
     fig_save_path = options.save_path+"langs_"+wrt_column+"_"+embed_name[column]
     if options.seed != None:
         fig_save_path += "_seed_"+str(options.seed)
+    if options.pca is not None:
+        fig_save_path += "_pca_"+str(options.pca)
         
     plt.savefig(fig_save_path+".png")
     plt.close()
