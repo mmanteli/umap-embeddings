@@ -42,6 +42,9 @@ for main_label, sub_labels in labels_all_hierarchy_with_other.items():
 # this needed for CORE scheme, as NA is read as NaN
 remove_nan = lambda x: "NA" if x == "nan" else str(x)
 
+# this for saving figs:
+fig_label = {"label_for_umap":"register", "lang":"language"}
+
 # This for easy parsing of label parameters; if given as a list, that is used, else checking for keywords
 def parse_labels(l):
     if type(l)==list:
@@ -54,6 +57,15 @@ def parse_labels(l):
         return main_labels
     else:
         print(f"ERRONIOUS LABELS; USING {main_labels}")
+
+def parse_save_directory(d):
+    try:
+        os.makedirs(d, exist_ok=True)
+        return d
+    except:
+        print(f"Cannot create saving directory {d}, using default value (umap-figures/).")
+        return "umap-figures/"
+        
 
 # ---------------------------------------------------ARGUMENTS--------------------------------------------------- #
 
@@ -78,7 +90,7 @@ ap.add_argument('--keep_sublabels', type=bool, metavar='BOOL', default=False,
                 help='Keep sublabels and attach them to main level with hyphen, e.g. "HI-re"')
 ap.add_argument('--pca','--n_pca', type=int, metavar='INT>0', default=None,
                 help="Number of dimensions mapped to with PCA before UMAP. No value = No PCA.")
-ap.add_argument('--hover_text', type=list[str], metavar="COLUMN(s)", default=None, 
+ap.add_argument('--hover_text', type=str, metavar="COLUMN", default=None, 
                 help="Adds column values as hover text")
 ap.add_argument('--truncate_hover', default=True,  type=bool, metavar="bool",
                 help='Truncate hover text.')
@@ -96,9 +108,9 @@ ap.add_argument('--seed', type=int, metavar='INT', default=None,
                 help='Seed for reproducible outputs. Default=None, UMAP runs faster with no seed.')
 ap.add_argument('--extension', type=str, metavar="str", default="png", choices=["png", "html"],
                 help="Which format for saving the plots. --hover_text forces html.")
-ap.add_argument('--save_dir', type=Path_dc, metavar='DIR', default="umap-figures",
+ap.add_argument('--save_dir', '--output_dir', type=parse_save_directory, metavar='DIR', default="umap-figures/",
                 help='Dir where to save the results to.')
-ap.add_argument('--save_prefix', type=str, metavar='str', default="umap_",
+ap.add_argument('--save_prefix', '--output_prefix', type=str, metavar='str', default="umap_",
                 help='Prefix for save file, lang/label and other params added as well as file extension.')
 ap.add_argument('--header', type=list[str], metavar='LIST[COLUMNS]', default=None,
                 help='If the data has no column names, give them here.')
@@ -243,8 +255,8 @@ def read_and_process_data(options):
             
             # finally, drop everything unneeded and append
             if options.hover_text is not None:
-                if all(i in df.columns for i in options.hover_text):
-                    df = df[['lang','label_for_umap', *options.use_column_embeddings, *options.hover_text]]
+                if all(i in df.columns for i in [options.hover_text]):
+                    df = df[['lang','label_for_umap', *options.use_column_embeddings, options.hover_text]]
                 else:
                     df = df[['lang','label_for_umap', *options.use_column_embeddings]]
                     print("--hover_text= {options.hover_text} given but columns could not be found. Setting as null.")
@@ -267,9 +279,19 @@ def read_and_process_data(options):
 def apply_umap(df, reducer, options):
     # Values from string to list and flatten, get umap embeds
     for column in options.use_column_embeddings:
-        df[column] = df[column].apply(
-            lambda x: np.array([float(y) for y in eval(x)[0]])
-        )
+        try:
+            df[column] = df[column].apply(
+                lambda x: np.array([float(y) for y in eval(x)[0]])   # remove [0], if your embeds are [x1, x2, ...]
+            )
+        except:
+            try:
+                df[column] = df[column].apply(
+                    lambda x: np.array([float(y) for y in np.fromstring(x, sep=" ")])   # change sep, if your embeds are "x1,x2,..."
+                )
+            except:
+                print("Cannot change the data type of the embedding columns to float. Try to change the separator in the \
+                      codeblock above, if your embeds are separated by something else than white space, or remove [0], if \
+                      your data is not doubly nested.")
         scaled_embeddings = StandardScaler().fit_transform(df[column].tolist())
         if options.pca is not None:
             pca = PCA(n_components=options.pca)
@@ -293,12 +315,17 @@ def plot_embeddings_normal(df_plot, data_column, color_column, options):
                      title=title, labels={"label_for_umap": "Register", "lang":"Language"},
                      width=1200, height=900)  # Increased size for better visibility
 
-    #fig.update_layout(
-    #    legend_title_text='Cluster',
-    #)
+    
+    fig.update_traces(marker={"opacity":0.5, "size":3})
+    # freeze legend
+    fig.update_layout(legend={'itemsizing': 'constant'})
+    fig.update_layout({
+        'plot_bgcolor': 'rgba(0, 0, 0, 0)',
+        'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+        })
     
     # Save the figure as an HTML file or png
-    fig_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{color_column}_{data_column}.{options.extension}')
+    fig_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{fig_label[color_column]}_{data_column}.{options.extension}')
     if not os.path.exists(options.save_dir):
         os.makedirs(options.save_dir)
     if options.extension == "html":
@@ -314,24 +341,28 @@ def wrap_text(text, width, truncate=True):
     return '<br>'.join([text[i:i+width] for i in range(0, len(text), width)])
 
 
-def plot_embeddings_with_hover(df_plot, column, color, options):
-    df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row['text'], 80, truncate=options.truncate_text)}", axis=1)
+def plot_embeddings_with_hover(df_plot, data_column, color_column, options):
+    df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row[options.hover_text], 80, truncate=options.truncate_hover)}", axis=1)
 
-    fig = px.scatter(df_plot, x='x_'+column, y='y_'+column, color=color,
+    print(f"Now plotting interactive plots for {'x_'+data_column},{'y_'+data_column} with coloring based on {color_column}.")
+
+    fig = px.scatter(df_plot, x='x_'+data_column, y='y_'+data_column, color=color_column,
                      title=f'Embeddings with {options.model_name} from {options.data_name}',
                      labels={"label_for_umap": "Register", "lang":"Language"},
-                     #hover_data={"hover_text":True, "x_"+column:False, "y_"+column:False, "lang"=False},
-                     hover_data={"hover_text":True,"lang":True, options.use_column:True, "text":False, "x_"+column:False, "y_"+column:False},
-                     #hover_name='hover_text', hover_data={"x_"+column:True, "y_"+column:True,'lang': True, 'text': True},
-                     width=2000, height=1500)  # Increased size for better visibility
-
-    fig.update_layout(
-        legend_title_text='Cluster',
-        hoverlabel=dict(bgcolor="white", font_size=16, font_family="Rockwell", bordercolor="black"),
-    )
-    
+                     hover_data={"hover_text":True,"lang":True, "label_for_umap":True, "text":False, "x_"+data_column:False, "y_"+data_column:False},
+                     width=1200, height=900)  # Increased size for better visibility
+    fig.update_layout(legend= {'itemsizing': 'constant'})
+    fig.update_traces(marker={"opacity":0.5, "size":3})
+    #fig.update_layout(
+    #    legend_title_text='Cluster',
+    #    hoverlabel=dict(bgcolor="white", font_size=16, font_family="Rockwell", bordercolor="black"),
+    #)
+    fig.update_layout({
+        'plot_bgcolor': 'rgba(0, 0, 0, 0)',
+        'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+        })
     # Save the figure as an HTML file
-    html_file = os.path.join(options.save_dir, f'{options.save_prefix}{color}_wrt_{options.use_column}_{column}.html')
+    html_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{fig_label[color_column]}_{data_column}.html')
     if not os.path.exists(options.save_dir):
         os.makedirs(options.save_dir)
     fig.write_html(html_file)
@@ -390,7 +421,7 @@ if __name__=="__main__":
     apply_umap(df, reducer, options)
     
     # change which function to use based on hover (just rename the function to plot_embeddings)
-    plot_embeddings = plot_embeddings_with_hover if options.hover_text else plot_embeddings_normal
+    plot_embeddings = plot_embeddings_with_hover if options.hover_text is not None else plot_embeddings_normal
 
     # plot wrt labels
     for column in options.use_column_embeddings:
