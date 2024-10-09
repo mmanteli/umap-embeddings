@@ -276,7 +276,7 @@ def read_and_process_data(options):
 #------------------------------------------------UMAP----------------------------------------------------#
 
 
-def apply_umap(df, reducer, options):
+def apply_reducer(df, reducer, options):
     # Values from string to list and flatten, get umap embeds
     for column in options.use_column_embeddings:
         try:
@@ -417,8 +417,11 @@ if __name__=="__main__":
         reducer = umap.UMAP(random_state=options.seed, n_neighbors=options.n_neighbors, min_dist=options.min_dist)
     else:
         reducer = umap.UMAP(n_neighbors=options.n_neighbors, min_dist=options.min_dist)
-    # apply umap to embeddings, apply pca if needed
-    apply_umap(df, reducer, options)
+    # for a pacmap implementation?
+    # reducer = pacmap.PaCMAP(n_neighbors=options.n_neighbors, apply_pca=True, MN_ratio=2, FP_ratio=1, random_state=seed)
+    
+    # apply reducer to embeddings, apply pca if stated in the options
+    apply_reducer(df, reducer, options)
     
     # change which function to use based on hover (just rename the function to plot_embeddings)
     plot_embeddings = plot_embeddings_with_hover if options.hover_text is not None else plot_embeddings_normal
