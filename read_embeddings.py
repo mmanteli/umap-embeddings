@@ -26,7 +26,8 @@ for main_label, sub_labels in labels_all_hierarchy_with_other.items():
     for sub_label in sub_labels:
         reverse_hierarchy[sub_label] = main_label
 
-
+# this needed for CORE scheme, as NA is read as NaN
+remove_nan = lambda x: "NA" if x == "nan" else str(x)
 
 def read_file(file, extension, names=None):
     if extension == ".tsv":

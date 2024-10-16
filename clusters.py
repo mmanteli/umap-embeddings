@@ -1,13 +1,16 @@
 import numpy as np
 import pandas as pd
 import sys
+import os
 from sklearn.preprocessing import normalize
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics import adjusted_rand_score
 from nltk.cluster.kmeans import KMeansClusterer
 from nltk.cluster.util import cosine_distance
+from spherecluster_spherical_kmeans import SphericalKMeans
 from sklearn.decomposition import PCA
+import umap
 from sklearn.preprocessing import LabelEncoder
 from jsonargparse import ArgumentParser
 from jsonargparse import ActionYesNo
@@ -30,7 +33,9 @@ main_labels = ["HI","ID","IN","IP","NA","OP"]
 without_MT = ["HI","ID","IN","IP","LY","NA","OP","SP"]
 sublabels = ["it", "os", "ne", "sr", "nb", "on", "re","oh", "en", "ra", "dtp", "fi", "lt", "oi", "rv","ob", "rs", "av", "oo""ds", "ed", "oe"]
 
-
+# percentage of the colorwheel not used in the plots;
+# high values choose more similar colors for a method, e.g. blueish for kmeans, redish for spherical
+# low values choose uniformly from colorwheel
 COLORSEPARATION = 0.33
 
 
@@ -72,10 +77,14 @@ ap.add_argument('--embeddings', '--data', type=Path_drw, required=True, metavar=
                     (e.g. emb_fr.tsv, sv_emb.tsv) assumed in filenames.')
 ap.add_argument('--clustering_method','--cmethod', default="all", choices=["all","kmeans","spherical-kmeans"],
                 help='Which clustering method to use, default=all.')
-ap.add_argument('--reduction_method','--rmethod', default="pca", choices=["pca", "umap", "both"],
+ap.add_argument('--reduction_method','--rmethod', default="pca", choices=["pca", "umap", "all"],
                 help='Which dimension resuction to use, default=all.')
-ap.add_argument('--n_clusters', '--num_clusters', type=parse_range_number, metavar='[INT, INT]', default=[3,21],
-                help="number of clusters to be looped over. Give as [1,2] or 1,2.")
+ap.add_argument('--no_reduction','--nr', default=False, type=bool,
+                help='Option to use the full embedding data.')
+ap.add_argument('--pca_before_umap', default=None, type=int,
+                help='apply pca before umap, give as a interger dimension.')
+ap.add_argument('--n_clusters', '--num_clusters', type=parse_range_number, metavar='[INT, INT, (INT step)]', default=[3,21],
+                help="number of clusters to be looped over. Give as [1,2] or [3,7,2]")
 ap.add_argument('--languages','--langs','--language','--lang', type=list[str], metavar='LIST', required=True,
                 help='Which languages to download from --embeddings path.')
 ap.add_argument('--labels', type=parse_labels, metavar='LIST or GROUP NAME', default=main_labels,
@@ -92,12 +101,12 @@ ap.add_argument('--keep_sublabels', type=bool, metavar='BOOL', default=False,
                 help='Keep sublabels and attach them to main level with hyphen, e.g. "HI-re"')
 ap.add_argument('--n_pca','--pca', type=parse_range_number, metavar='[INT, INT]', default=[3,7,1],
                 help="Number of dimensions mapped to with PCA as lower and higher thresholds.")
-ap.add_argument('--n_umap','--umap', type=parse_range_number, metavar='[INT, INT]', default=[3,7,1],
+ap.add_argument('--n_umap','--umap', type=parse_range_number, metavar='[INT, INT]', default=[2,3,1],
                 help="Number of dimensions mapped to with PCA as lower and higher thresholds.")
-#ap.add_argument('--hover_text', type=str, metavar="COLUMN", default=None, 
-#                help="Adds column values as hover text")
-#ap.add_argument('--truncate_hover', default=True,  type=bool, metavar="bool",
-#                help='Truncate hover text.')
+ap.add_argument('--hover_text', type=str, metavar="COLUMN", default=None, 
+                help="Adds column values as hover text")
+ap.add_argument('--truncate_hover', default=True,  type=bool, metavar="bool",
+                help='Truncate hover text.')
 ap.add_argument('--n_neighbors', type=int, metavar='INT', default=50,
                 help='How many neighbors for UMAP.')
 ap.add_argument('--min_dist', type=float, metavar='FLOAT', default=0.0,
@@ -110,8 +119,8 @@ ap.add_argument('--data_name', type=str, metavar="STR",
                 help='Added to plot titles if given.')
 ap.add_argument('--seed', type=int, metavar='INT', default=None,
                 help='Seed for reproducible outputs. Default=None, UMAP runs faster with no seed.')
-#ap.add_argument('--extension', type=str, metavar="str", default="png", choices=["png", "html"],
-#                help="Which format for saving the plots. --hover_text forces html.")
+ap.add_argument('--extension', type=str, metavar="str", default="png", choices=["png", "html"],
+                help="Which format for saving the plots. --hover_text forces html.")
 ap.add_argument('--save_dir', '--output_dir', type=str, metavar='DIR', default="metric_plots/",
                 help='Dir where to save the results to.')
 ap.add_argument('--save_prefix', '--output_prefix', type=str, metavar='str', default="silh_and_ari",
@@ -152,19 +161,19 @@ def cosine_distance(X, Y=None, Y_norm_squared=None, squared=False):
 
 def euclidian_distance(X, Y=None, Y_norm_squared=None, squared=False):
     if squared: #squared equals False during cluster center estimation
-        return pairwise_distances(X,Y, metric='cosine')
+        return pairwise_distances(X,Y, metric='euclidean')
     else:
-        return pairwise_distances(X,Y, metric='cosine')
+        return pairwise_distances(X,Y, metric='euclidean')
 
 
-def spherical_kmeans(x: np.array, n_clusters: int, n_iterations=300):
+def spherical_kmeans_sklearn_modified(x: np.array, n_clusters: int, n_iterations=300):
     sphe_kmeans._euclidean_distances = cosine_distance
     sphe_kmeans.euclidean_distances = cosine_distance # utilized by the method `KMeans._transform`
     km = sphe_kmeans.KMeans(n_clusters=n_clusters, max_iter=n_iterations)
     labels = km.fit_predict(x)
     return labels
 
-def regular_kmeans_new(x: np.array, n_clusters: int, n_iterations=300):
+def kmeans_sklearn_modified(x: np.array, n_clusters: int, n_iterations=300):
     sphe_kmeans._euclidean_distances = euclidian_distance
     sphe_kmeans.euclidean_distances = euclidian_distance # utilized by the method `KMeans._transform`
     km = sphe_kmeans.KMeans(n_clusters=n_clusters, max_iter=n_iterations)
@@ -175,19 +184,19 @@ def spherical_kmeans_nltk(x: np.array, n_clusters: int, n_iterations=300):
     
     # nltk had an options to define the metric; thus using this
     # however; this took ages to converge!!!!
-    # so above impelentation from stackoverflow
     kmeans = KMeansClusterer(n_clusters, distance=cosine_distance, repeats=n_iterations)
     try:
-        labels = kmeans.cluster(x, assign_clusters=True)
+        labels = kmeans.cluster(x, assign_clusters=True, trace=True)
     except:
         return None
 
     return labels
+
     
 def regular_kmeans(x: np.array, n_clusters: int, n_iterations=300):
     """ Regular k-means clustering """
     
-    kmeans = KMeans(n_clusters=n_clusters, max_iter=n_iterations)#, n_init=?????)
+    kmeans = KMeans(n_clusters=n_clusters, max_iter=n_iterations, init="k-means++")
     labels = kmeans.fit_predict(x)
 
     #return kmeans.cluster_centers_, kmeans.labels_
@@ -212,9 +221,25 @@ def calculate_ari(true_labels, predicted_labels):
     return ari
 
 
-def apply_pca(x: np.array, n_dim: int):
-    pca = PCA(n_components=n_dim)
+def apply_pca(x: np.array, n_dim: int, options):
+    if options.seed is not None:
+        pca = PCA(n_components=n_dim, random_state=options.seed)
+    else:
+        pca = PCA(n_components=n_dim)
     z = pca.fit_transform(x)
+    return z
+
+def apply_umap(x: np.array, n_dim: int, options):
+    if options.seed is not None:
+        reducer = umap.UMAP(n_neighbors=options.n_neighbors, min_dist=options.min_dist, n_components=n_dim, random_state=options.seed)
+    else:
+        reducer = umap.UMAP(n_neighbors=options.n_neighbors, min_dist=options.min_dist, n_components=n_dim)
+
+    # if given in params, apply pca before umap:
+    if options.pca_before_umap is not None:
+        x = apply_pca(x, options.pca_before_umap, options)
+    
+    z = reducer.fit_transform(x)
     return z
 
 def parse_to_float(df: pd.DataFrame, column):
@@ -245,14 +270,14 @@ def cluster_loop(x, y, options):
     """
     apply selected clustering methods to x, calculate it's silhouette score
     and ARI wrt given labels y, for number of clusters given in options as
-    options.n_clusters = [c1, c2]
+    options.n_clusters = [c1, c2, (interval)]
     Returns results as a dict with cluster method as the first key, 
     cluster number as the second key
     and silhouette + ARI as third key.
     """
 
     # redirect funtion based on --clustering_method
-    cluster_ = lambda x: {"kmeans":regular_kmeans, "spherical-kmeans":spherical_kmeans}[x]
+    cluster_ = lambda x: {"kmeans":kmeans_sklearn_modified, "spherical-kmeans":spherical_kmeans_sklearn_modified}[x]
 
     # result collection
     results = {k: {} for k in options.clustering_method}
@@ -280,21 +305,35 @@ def cluster_loop(x, y, options):
 
    
 
-def pca_loop(x, y, options):
+def reduction_loop(x, y, options):
     # to be implemented; not only one pca for testing
 
-    pca_results = {}
-    for d in range(*options.n_pca):
-        print(f"In step pca={d}.")
-        x_ = apply_pca(x, d)
-        results = cluster_loop(x_, y, options)
-        pca_results[d] = results
-    return pca_results
+    reduction_results = {}
+    if options.n_pca != []:
+        for d in range(*options.n_pca):
+            print(f"In step pca={d}.")
+            x_ = apply_pca(x, d, options)
+            results = cluster_loop(x_, y, options)
+            reduction_results["pca_"+str(d)] = results
+
+    if options.n_umap != []:
+        for d in range(*options.n_umap):
+            print(f"In step umap={d}.")
+            x_ = apply_umap(x, d, options)
+            results = cluster_loop(x_, y, options)
+            reduction_results["umap_"+str(d)] = results
+
+    if options.no_reduction:
+        print(f"In step no reduction.")
+        results = cluster_loop(x, y, options)
+        reduction_results["no_reduction"] = results
+        
+    return reduction_results
 
 def create_vector(sectors,points,separation):
-    len_empty_space = sectors*separation  # space to be left unused
-    print(len_empty_space)
-    len_sector = (1-len_empty_space)/sectors    # how long each sector is
+    len_empty_space = sectors*separation  # space (%) on the colorwheel to be left unused
+
+    len_sector = (1-len_empty_space)/sectors    # how long each used sector is
 
     buffer = separation/2.0   # beginning apply only half of buffer
     result = []
@@ -305,38 +344,42 @@ def create_vector(sectors,points,separation):
     return result
 
 
-def create_colormap(pca,methods):
+def create_colormap(results, methods):
     """
-    creates a colormap that uses same hues for methods, but separates pca.
-    pcs = [p1,p2] lower and upper bound
-    methods = ["kmeans", "spherical-kmeans"]]
+    creates a colormap that uses same hues for methods, but separates reduction methods.
+    results = {"reduction method": {"cluster method": {...data...}}}
+    methods = ["kmeans", "spherical-kmeans"]] etc.
     """
-    n_pca = len(range(*pca))
+    reductions = [i for i in results.keys()]
+    n_pca = len(reductions)   # lazy naming
     n_methods = len(methods)
     base_colormap_name="mrybm"
     separation = COLORSEPARATION/n_methods
     color_selection_vector = create_vector(n_methods, n_pca, separation)
     colors = {}
-    print(color_selection_vector)
     assert len(color_selection_vector) == n_methods
     assert len(color_selection_vector[0]) == n_pca
     for sublist, m in zip(color_selection_vector, methods):
         c_map = px.colors.sample_colorscale(base_colormap_name,sublist)
         colors[m] = {}
-        for c, p in zip(c_map, range(*pca)):
+        for c, p in zip(c_map, reductions):
             colors[m][p] = c
     return colors
 
 def plot_results(results, options):
 
+    num_labels=len(options.labels)
+
     # Initialize the figure
     # fig = go.Figure()
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Silhouette score", "ARI"))
 
-    # make a colormap that has 
-    colormap = create_colormap(options.n_pca, options.clustering_method)  
+    # make a colormap that has correct number of colors
+    #num_methods = len(options.clustering_method)
+    #num_reductions = len(results.keys())
+    colormap = create_colormap(results, options.clustering_method)  
 
-    for pca_value, data in results.items():
+    for red_value, data in results.items():
         for method, values in data.items():
             x_vals = values['x']
             y1_vals = values['y_silh']
@@ -347,9 +390,9 @@ def plot_results(results, options):
                 x=x_vals,
                 y=y1_vals,
                 mode='lines',
-                line=dict(color=colormap[method][pca_value]),
-                legendgroup=pca_value,
-                name=f'PCA {pca_value} {method}'
+                line=dict(color=colormap[method][red_value]),
+                legendgroup=red_value,
+                name=f'{red_value} {method}'
                 ),
                 row=1, col=1
             )
@@ -359,13 +402,20 @@ def plot_results(results, options):
                 x=x_vals,
                 y=y2_vals,
                 mode='lines',
-                line=dict(color=colormap[method][pca_value]),
-                legendgroup=pca_value,
+                line=dict(color=colormap[method][red_value]),
+                legendgroup=red_value,
                 showlegend=False,
-                name=f'PCA {pca_value} {method}'
+                name=f'{red_value} {method}'
                 ),
                 row=1, col=2
             )
+            
+    fig.add_vline(x=num_labels, line_dash="dot", line_color="gray", row="all", col="all", annotation_text="n_labels")
+    num_langs = len(options.languages)
+    if num_langs > 1:
+        fig.add_vline(x=num_langs, line_dash="dot", line_color="gray", row="all", col="all", annotation_text="n_langs")
+        if num_langs*num_labels <= options.n_clusters[1]: # top value of calculations
+            fig.add_vline(x=num_langs*num_labels, line_dash="dot", line_color="gray", row="all", col="all", annotation_text="n_langs*n_langs")
 
     # Update layout
     fig.update_layout(
@@ -378,13 +428,18 @@ def plot_results(results, options):
     fig.update_xaxes(title_text="Number of clusters", row=1, col=2)
     fig.update_yaxes(title_text="Score", row=1, col=1)
     fig.update_yaxes(title_text="Score", row=1, col=2)
-    pio.write_html(fig, file='interactive_plot.html', auto_open=True)
+    langs = "-".join(options.languages)
+    save_name = os.path.join(options.save_dir, options.save_prefix+"_"+langs+"_sample"+str(options.sample)+".html")
+    pio.write_html(fig, file=save_name, auto_open=False)
 
 
 
-if __name__=="__main__":
-    options = ap.parse_args(sys.argv[1:])
-    # parse this mfs
+def parse_params_further(options):
+    """
+    This function exists because I do not understand jsonargparse.
+    """
+
+    # change this to something that can be looped through
     if options.clustering_method == "all":
         options.clustering_method = ["kmeans", "spherical-kmeans"]
     else:
@@ -392,8 +447,29 @@ if __name__=="__main__":
             
     try:
         os.makedirs(options.save_dir, exist_ok=True)
-    except:
-        print("Cannot create save directory. Create it yourself")
+    except Exception as e:
+        print("Cannot create save directory.")
+        print(e)
+        
+    # make umap and pca ranges empty if needed:
+    # this way, we don't need to write conditions, just loop regularly and not do anything
+    if options.reduction_method == "pca":
+        options.n_umap = []   # not looping through this
+    if options.reduction_method == "umap":
+        options.n_pca = []
+
+    if options.no_reduction:
+        if "spherical-kmeans" in options.clustering_method:
+            print("Setting clustering method to k-means only, as no_reduction spherical is not implemented/is too slow.")
+            options.clustering_method = ["kmeans"]
+            
+    return options
+
+if __name__=="__main__":
+    options = ap.parse_args(sys.argv[1:])
+    # parse this mfs
+    options = parse_params_further(options)
+    
     print(options)
     
     print("\nReading data")
@@ -413,8 +489,8 @@ if __name__=="__main__":
         y = Enc.fit_transform(given_labels)
 
         print("\nStarting pca + num-clusters loop...")
-        results = pca_loop(x, y, options)
-        #print(results)
+        results = reduction_loop(x, y, options)
+
         print("\nCalculations done, plotting...")
         plot_results(results, options)
 
