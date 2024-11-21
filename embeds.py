@@ -10,13 +10,14 @@ from tqdm import tqdm
 from pathlib import Path
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from sklearn.metrics import f1_score
+import os
 
 def argparser():
     ap = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     ap.add_argument('--model_name', type=str, metavar='STR', default=None, required=True, 
-                    choices = ["xlmr", "xlmr-long", "bge-m3","e5"],help='Which model to use.')
+                    choices = ["xlmr", "xlmr-long", "bge-m3","bge-m3-new","e5"],help='Which model to use.')
     ap.add_argument('--fold','--fold_number', type=int, metavar="INT", default=None,
-                    help='Fold for xlmr and xlmr-long models')
+                    help='Fold for xlmr, xlmr-long and bge-m3-new models')
     ap.add_argument('--data_name', type=str, metavar='STR', default=None, 
                     choices=["CORE", "cleaned", "register_oscar", "dirty", "balanced_register_oscar"],
                     help='Which data to use.')
@@ -37,12 +38,14 @@ def argparser():
 model_dict = lambda fold: {"xlmr":"/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold),
                         "xlmr-long":"/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large_testing_longer_run/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold),
                         "e5":"/scratch/project_2009199/pytorch-registerlabeling/models/intfloat/multilingual-e5-large/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42",
-                        "bge-m3":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42"}
+                        "bge-m3":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42",
+                        "bge-m3-new":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/folds/fold_"+str(fold)}
 
 label_dict = {"xlmr": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]), 
               "xlmr-long": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
               "e5":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
-              "bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
+              "bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
+              "bge-m3-new":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
 # old bge = np.array(["HI","ID","IN","IP","LY","MT","NA","OP","SP"])
 
 data_dict = lambda lang: {"CORE": f'/scratch/project_2002026/amanda/sampling_oscar/final_core/{lang}.hf',
@@ -53,17 +56,17 @@ data_dict = lambda lang: {"CORE": f'/scratch/project_2002026/amanda/sampling_osc
 
 
 options = argparser().parse_args(sys.argv[1:])
-if options.model_name in ["xlmr", "xlmr-long"]:
-    assert options.fold is not None, "No fold given for xmlr/xlmr-long"
+if options.model_name in ["xlmr", "xlmr-long", "bge-m3-new"]:
+    assert options.fold is not None, "No fold given for xmlr/xlmr-long/bge-m3-new"
 options.model_path = model_dict(options.fold)[options.model_name]
 options.data_path = data_dict(options.language)[options.data_name]
 options.labels = label_dict[options.model_name]
 if options.save_path is None:
-    if options.model_name in ["xlmr", "xlmr-long"]:
+    if options.model_name in ["xlmr", "xlmr-long", "bge-m3-new"]:
         options.save_path = f'/scratch/project_2009199/umap-embeddings/model_embeds/{options.data_name}/{options.model_name}-fold-{options.fold}/'
     else:
        options.save_path = f'/scratch/project_2009199/umap-embeddings/model_embeds/{options.data_name}/{options.model_name}/' 
-
+os.makedirs(options.save_path, exist_ok=True)
 
 num_labels=len(options.labels)
 label2id = {v:k for k,v in enumerate(options.labels)}
