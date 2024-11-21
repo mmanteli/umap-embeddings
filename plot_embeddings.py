@@ -45,7 +45,7 @@ for main_label, sub_labels in labels_all_hierarchy_with_other.items():
 remove_nan = lambda x: "NA" if x == "nan" else str(x)
 
 # this for saving figs:
-fig_label = {"label_for_umap":"register", "lang":"language"}
+fig_label = {"label_for_umap":"register", "lang":"language", "true_label":"true_label"}
 
 # This for easy parsing of label parameters; if given as a list, that is used, else checking for keywords
 def parse_labels(l):
@@ -151,14 +151,15 @@ def apply_reducer(df, reducer, options):
 
 #------------------------------------------------plotting-----------------------------------------------#
 
-def plot_embeddings_normal(df_plot, data_column, color_column, options):
+def plot_embeddings_normal(df_plot, data_column, color_column, options, title=None):
 
-    title = f'Embeddings with {options.model_name} from {options.data_name}'
+    if title is None:
+        title = f'Embeddings with {options.model_name} from {options.data_name}'
 
     print(f"Now plotting {'x_'+data_column},{'y_'+data_column} with coloring based on {color_column}.")
     
     fig = px.scatter(df_plot, x='x_'+data_column, y='y_'+data_column, color=color_column,
-                     title=title, labels={"label_for_umap": "Register", "lang":"Language"},
+                     title=title, labels="cluster",#{"label_for_umap": "Register", "lang":"Language"},
                      width=1200, height=900)  # Increased size for better visibility
 
     
@@ -171,7 +172,7 @@ def plot_embeddings_normal(df_plot, data_column, color_column, options):
         })
     
     # Save the figure as an HTML file or png
-    fig_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{fig_label[color_column]}_{data_column}.{options.extension}')
+    fig_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{fig_label.get(color_column, color_column)}_{data_column}.{options.extension}')
     if not os.path.exists(options.save_dir):
         os.makedirs(options.save_dir)
     if options.extension == "html":
@@ -187,13 +188,16 @@ def wrap_text(text, width, truncate=True):
     return '<br>'.join([text[i:i+width] for i in range(0, len(text), width)])
 
 
-def plot_embeddings_with_hover(df_plot, data_column, color_column, options):
+def plot_embeddings_with_hover(df_plot, data_column, color_column, options, title=None):
+
+    if title is None:
+        title = f'Embeddings with {options.model_name} from {options.data_name}'
     df_plot["hover_text"] =  df_plot.apply(lambda row: f"{wrap_text(row[options.hover_text], 80, truncate=options.truncate_hover)}", axis=1)
 
     print(f"Now plotting interactive plots for {'x_'+data_column},{'y_'+data_column} with coloring based on {color_column}.")
 
     fig = px.scatter(df_plot, x='x_'+data_column, y='y_'+data_column, color=color_column,
-                     title=f'Embeddings with {options.model_name} from {options.data_name}',
+                     title=title,
                      labels={"label_for_umap": "Register", "lang":"Language"},
                      hover_data={"hover_text":True,"lang":True, "label_for_umap":True, "text":False, "x_"+data_column:False, "y_"+data_column:False},
                      width=1200, height=900)  # Increased size for better visibility
@@ -208,7 +212,7 @@ def plot_embeddings_with_hover(df_plot, data_column, color_column, options):
         'paper_bgcolor': 'rgba(0, 0, 0, 0)',
         })
     # Save the figure as an HTML file
-    html_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{fig_label[color_column]}_{data_column}.html')
+    html_file = os.path.join(options.save_dir, f'{options.save_prefix}_wrt_{fig_label.get(color_column, color_column)}_{data_column}.html')
     if not os.path.exists(options.save_dir):
         os.makedirs(options.save_dir)
     fig.write_html(html_file)
