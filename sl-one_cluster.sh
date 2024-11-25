@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=cluster_mean
+#SBATCH --job-name=cluster
 #SBATCH --account=project_2009199
 #SBATCH --partition=medium
-#SBATCH --time=10:00:00
+#SBATCH --time=1:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
@@ -10,32 +10,22 @@
 #SBATCH -e logs/%x_%j.err
 
 module load pytorch
-model="bge-m3-new-fold-*"
+model="bge-m3-new-fold-1"
 data="balanced_register_oscar"
 
-srun python clusters_mean.py --data="model_embeds/${data}/${model}/" \
-                           --langs=["en","fr","zh","ur"] \
-                           --data_name=$data \
-                           --model_name=$model \
-                           --labels="without_MT" \
-                           --sample=5000 \
-                           --cmethod="all" \
-                           --rmethod="umap" \
-                           --n_umap="[2,10,2]" \
-                           --save_dir="metric_plots/average/${data}/${model}/" \
-                           --save_prefix="averaged"
-exit 0
+
 srun python clusters.py --data="model_embeds/${data}/${model}/" \
                            --langs=["en","fr","zh","ur"] \
                            --data_name=$data \
                            --model_name=$model \
                            --labels="without_MT" \
                            --sample=5000 \
-                           --cmethod="all" \
+                           --hover_text="text" \
+                           --cmethod="kmeans" \
                            --rmethod="umap" \
-                           --n_umap="[2,10,2]" \
-                           --save_dir="metric_plots/${data}/${model}/" \
-                           --save_prefix="averaged"
+                           --n_umap="[2,4,1]" \
+                           --save_dir="metric_plots/${data}/${model}/with_hover/" \
+                           --save_prefix="fig"
 seff $SLURM_JOBID
 exit 0
 
