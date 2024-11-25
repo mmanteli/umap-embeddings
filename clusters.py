@@ -454,7 +454,7 @@ def parse_params_further(options):
     """
     # number of clusters needed:
     if options.n_clusters is None:
-        options.n_clusters = [1, len(options.num_labels)*len(options.languages)+1]
+        options.n_clusters = [2, len(options.labels)*len(options.languages)+1]
 
     # change this to something that can be looped through
     if options.clustering_method == "all":
