@@ -20,6 +20,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.io as pio
 import plotly.express as px
+import pickle
 
 # data reading
 from read_embeddings import read_and_process_data
@@ -229,7 +230,9 @@ def average_results(results):
                 ari.append(d[r][c]["y_ari"])
             mean_results[r+"_mean"][c]["x"] = np.mean(x,axis=0)
             mean_results[r+"_mean"][c]["y_silh"] = np.mean(silh,axis=0)
+            mean_results[r+"_mean"][c]["y_silh_std"] = np.mean(silh,axis=0)
             mean_results[r+"_mean"][c]["y_ari"] = np.mean(ari, axis=0)
+            mean_results[r+"_mean"][c]["y_ari_std"] = np.std(ari, axis=0)
 
     return mean_results
             
@@ -252,6 +255,13 @@ if __name__=="__main__":
     mean = average_results(collect_results)
 
     #print(mean)
+
+    # Writing the data down for future reference, e.g. wanting to plot with or without error bars:
+    p = os.path.join(options.save_dir, options.save_prefix+"_sample_"+str(options.sample)+"_plot_data.pkl")
+    with open(p, 'wb') as f:
+        pickle.dump(mean, f)
+
+    
     print("\nCalculations done, plotting...")
     plot_results(mean, options)
 

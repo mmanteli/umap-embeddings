@@ -10,7 +10,7 @@
 #SBATCH -e logs/%x_%j.err
 
 module load pytorch
-model="bge-m3-new-fold-1"
+model="bge-m3-long-fold-1"
 data="balanced_register_oscar"
 
 

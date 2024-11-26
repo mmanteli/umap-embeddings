@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=cluster_mean
+#SBATCH --job-name=xlmr-long-cluster-mean
 #SBATCH --account=project_2009199
 #SBATCH --partition=medium
-#SBATCH --time=10:00:00
+#SBATCH --time=09:30:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
@@ -10,20 +10,23 @@
 #SBATCH -e logs/%x_%j.err
 
 module load pytorch
-model="bge-m3-new-fold-*"
+model="xlmr-long-fold-*"
+model_name="xlmr-long-runs"
 data="balanced_register_oscar"
 
 srun python clusters_mean.py --data="model_embeds/${data}/${model}/" \
                            --langs=["en","fr","zh","ur"] \
                            --data_name=$data \
-                           --model_name=$model \
+                           --model_name=$model_name \
                            --labels="without_MT" \
                            --sample=5000 \
                            --cmethod="all" \
                            --rmethod="umap" \
                            --n_umap="[2,10,2]" \
-                           --save_dir="metric_plots/average/${data}/${model}/" \
+                           --save_dir="metric_plots/average/${data}/${model_name}/" \
                            --save_prefix="averaged"
+
+seff $SLURM_JOBID
 exit 0
 srun python clusters.py --data="model_embeds/${data}/${model}/" \
                            --langs=["en","fr","zh","ur"] \

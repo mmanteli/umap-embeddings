@@ -398,11 +398,19 @@ def plot_results(results, options):
             x_vals = values['x']
             y1_vals = values['y_silh']
             y2_vals = values['y_ari']
+            y1_std = values['y_silh_std'].tolist() if 'y_silh_std' in values.keys() else [0]*len(x_vals)
+            y2_std = values['y_ari_std'].tolist() if 'y_ari_std' in values.keys() else [0]*len(x_vals)
             
             # Add trace for y1
             fig.add_trace(go.Scatter(
                 x=x_vals,
                 y=y1_vals,
+                error_y=dict(
+                    type='data',
+                    array=y1_std,
+                    color=colormap[method][red_value],
+                    thickness=1
+                ),
                 mode='lines',
                 line=dict(color=colormap[method][red_value]),
                 legendgroup=red_value,
@@ -415,6 +423,12 @@ def plot_results(results, options):
             fig.add_trace(go.Scatter(
                 x=x_vals,
                 y=y2_vals,
+                error_y=dict(
+                    type='data',
+                    array=y2_std,
+                    color=colormap[method][red_value],
+                    thickness=1
+                ),
                 mode='lines',
                 line=dict(color=colormap[method][red_value]),
                 legendgroup=red_value,
