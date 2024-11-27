@@ -230,7 +230,7 @@ def average_results(results):
                 ari.append(d[r][c]["y_ari"])
             mean_results[r+"_mean"][c]["x"] = np.mean(x,axis=0)
             mean_results[r+"_mean"][c]["y_silh"] = np.mean(silh,axis=0)
-            mean_results[r+"_mean"][c]["y_silh_std"] = np.mean(silh,axis=0)
+            mean_results[r+"_mean"][c]["y_silh_std"] = np.std(silh,axis=0)
             mean_results[r+"_mean"][c]["y_ari"] = np.mean(ari, axis=0)
             mean_results[r+"_mean"][c]["y_ari_std"] = np.std(ari, axis=0)
 
