@@ -30,7 +30,7 @@ def argparser():
     ap.add_argument('--seed', type=int, metavar='INT', default=123,
                     help='Seed for reproducible outputs, like for sampling.')
     ap.add_argument('--save_path', type=str, metavar='DIR', default=None,
-                    help='Where to save results. If none given, going to umap_embeddings/{data_name}/{model_name}/')
+                    help='Where to save results. If none given, default ../data/model_embeds used.')
     return ap
 
 
@@ -39,7 +39,7 @@ model_dict = lambda fold: {"bge-m3":"/scratch/project_462000353/amanda/register-
 
 label_dict = {"bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
 
-data_dict = lambda lang: {"CORE": f'{lang}.hf',
+data_dict = lambda lang: {"CORE": f'/scratch/project_462000353/amanda/register-clustering/data/datasets/CORE/{lang}.hf',
                           "hplt": f'{lang}.hf'}
 
 
@@ -51,9 +51,9 @@ options.data_path = data_dict(options.language)[options.data_name]
 options.labels = label_dict[options.model_name]
 if options.save_path is None:
     if options.fold is not None:
-        options.save_path = f'/scratch/project_462000353/amanda/registers/data/model_embeds/{options.data_name}/{options.model_name}-fold-{options.fold}/'
+        options.save_path = f'/scratch/project_462000353/amanda/register-clustering/data/model_embeds/{options.data_name}/{options.model_name}-fold-{options.fold}/'
     else:
-       options.save_path = f'/scratch/project_462000353/amanda/registers/data/model_embeds/{options.data_name}/{options.model_name}/' 
+       options.save_path = f'/scratch/project_462000353/amanda/register-clustering/data/model_embeds/{options.data_name}/{options.model_name}/' 
 os.makedirs(options.save_path, exist_ok=True)
 
 num_labels=len(options.labels)
@@ -95,7 +95,15 @@ def predict(d, extract_labels=True):
                 if l in label2id.keys():
                     true_labels[label2id[l]] = 1
         if options.return_text:
-            return {"id":d["id"], "lang":d["lang"], "text":d["text"], "prediction":sigm, "labels": d["labels"], "vec_labels": true_labels, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
+            return {"id":d["id"], 
+                    "lang":d["lang"], 
+                    "text":d["text"], 
+                    "prediction":sigm, 
+                    "labels": d["labels"], 
+                    "vec_labels": true_labels, 
+                    "embed_first":embed[0], 
+                    "embed_half":embed[1], 
+                    "embed_last":embed[2]}
         else:
             return {"id":d["id"], "lang":d["lang"], "prediction":sigm, "labels": d["labels"], "vec_labels": true_labels, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
     return {"id":d["id"], "lang":d["lang"], "prediction":sigm, "embed_first":embed[0], "embed_half":embed[1], "embed_last":embed[2]}
