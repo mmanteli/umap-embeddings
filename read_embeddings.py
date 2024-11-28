@@ -163,7 +163,11 @@ def read_and_process_data(options):
 
             # if we need to downsample:
             if options.sample:
-                df = df.sample(n=options.sample)#, weights='label_for_umap', random_state=1)#.reset_index(drop=True)
+                #df = df.sample(n=options.sample)#, weights='label_for_umap', random_state=1)#.reset_index(drop=True)
+                how_many = int(options.sample/len(options.labels))
+                print(f"trying to sample {how_many} from each label with available: {df.value_counts('label_for_umap')}.")
+                #df = df.sample(n=options.sample)#, weights='label_for_umap', random_state=1)#.reset_index(drop=True)
+                df = df.groupby('label_for_umap').apply(lambda x: x.sample(n=how_many, replace=True, random_state=0)).reset_index(drop=True)
             
             # finally, drop everything unneeded and append
             if options.hover_text is not None:
