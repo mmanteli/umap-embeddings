@@ -6,8 +6,8 @@ from sklearn.preprocessing import normalize
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics import adjusted_rand_score
-from nltk.cluster.kmeans import KMeansClusterer
-from nltk.cluster.util import cosine_distance
+#from nltk.cluster.kmeans import KMeansClusterer
+#from nltk.cluster.util import cosine_distance
 #from spherecluster_spherical_kmeans import SphericalKMeans
 from sklearn.decomposition import PCA
 import umap
