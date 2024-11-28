@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=plotting
-#SBATCH --account=project_2002026
+#SBATCH --account=project_462000353
 #SBATCH --time=00:30:00
-#SBATCH --partition=test
+#SBATCH --partition=debug
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=1G
+#SBATCH --mem=3G
 #SBATCH -o logs/%j.out
 #SBATCH -e logs/%j.err
 
@@ -23,16 +23,20 @@ langs_list=$(echo "$langs" | sed 's/,/","/g' | awk '{print "[\""$0"\"]"}')
 
 echo "plotting ${model_name} ${dataname} with ${langs_hyphen} wrt ${wrt_column}"
 
-module load pytorch
+module purge
+module use /appl/local/csc/modulefiles
+module load pytorch/2.4
+source .venv/bin/activate
+
 srun python3 plot_embeddings.py \
-        --embeddings="/scratch/project_2009199/umap-embeddings/model_embeds/${data_name}/${model_name}/" \
+        --embeddings="/scratch/project_462000353/amanda/register-clustering/data/model_embeds/${data_name}/${model_name}/" \
         --languages=$langs_list \
         --model_name=$model_name \
         --data_name=$data_name \
         --use_column_labels=$wrt_column \
         --extension="html" \
         --hover_text="text" \
-        --save_dir="/scratch/project_2009199/umap-embeddings/umap-figures/${data_name}/${model_name}/${langs_hyphen}/${wrt_column}/"
+        --save_dir="/scratch/project_462000353/amanda/register-clustering/data/plots/${data_name}/${model_name}/${langs_hyphen}/${wrt_column}/"
 
 seff $SLURM_JOBID
 
