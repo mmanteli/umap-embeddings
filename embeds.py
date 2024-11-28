@@ -15,11 +15,11 @@ import os
 def argparser():
     ap = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     ap.add_argument('--model_name', type=str, metavar='STR', default=None, required=True, 
-                    choices = ["xlmr", "xlmr-long", "bge-m3","bge-m3-new","bge-m3-long","e5"],help='Which model to use.')
+                    choices = ["bge-m3"],help='Which model to use.')
     ap.add_argument('--fold','--fold_number', type=int, metavar="INT", default=None,
-                    help='Fold for xlmr, xlmr-long and bge-m3-new models')
-    ap.add_argument('--data_name', type=str, metavar='STR', default=None, 
-                    choices=["CORE", "cleaned", "register_oscar", "dirty", "balanced_register_oscar"],
+                    help='Fold for models with different splits')
+    ap.add_argument('--data_name', type=str, metavar='STR', required=True,
+                    choices=["CORE", "hplt"],
                     help='Which data to use.')
     ap.add_argument('--language','--lang', type=str, default=None, required=True, metavar='str',
                     help='which language to use.')
@@ -30,44 +30,30 @@ def argparser():
     ap.add_argument('--seed', type=int, metavar='INT', default=123,
                     help='Seed for reproducible outputs, like for sampling.')
     ap.add_argument('--save_path', type=str, metavar='DIR', default=None,
-                    help='Where to save results. If none given, going to umap_embeddings/with-text/{data_name}/{model_name}/')
+                    help='Where to save results. If none given, going to umap_embeddings/{data_name}/{model_name}/')
     return ap
 
 
 # paths for models and data, e.g. data_path = data_dict("en")["CORE"] gives en-core
-model_dict = lambda fold: {"xlmr":"/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold),
-                        "xlmr-long":"/scratch/project_2009199/pytorch-registerlabeling/models/xlm-roberta-large_testing_longer_run/labels_upper/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/fold_"+str(fold),
-                        "e5":"/scratch/project_2009199/pytorch-registerlabeling/models/intfloat/multilingual-e5-large/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42",
-                        "bge-m3":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42",
-                        "bge-m3-new":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/folds/fold_"+str(fold),
-                        "bge-m3-long":"/scratch/project_2009199/pytorch-registerlabeling/models/BAAI/bge-m3-retromae_512/labels_all/en-fi-fr-sv-tr_en-fi-fr-sv-tr/seed_42/folds_20epoch/fold_"+str(fold)}
+model_dict = lambda fold: {"bge-m3":"/scratch/project_462000353/amanda/register-clustering/data/models/folds_improved/fold_"+str(fold)}
 
-label_dict = {"xlmr": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]), 
-              "xlmr-long": np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
-              "e5":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
-              "bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
-              "bge-m3-new":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"]),
-              "bge-m3-long":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
-# old bge = np.array(["HI","ID","IN","IP","LY","MT","NA","OP","SP"])
+label_dict = {"bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
 
-data_dict = lambda lang: {"CORE": f'/scratch/project_2002026/amanda/sampling_oscar/final_core/{lang}.hf',
-                          "cleaned": f'/scratch/project_2002026/amanda/sampling_oscar/final_cleaned/{lang}.hf',
-                          "register_oscar": f'/scratch/project_2002026/amanda/sampling_oscar/final_reg_oscar/{lang}.hf',
-                          "balanced_register_oscar":f'/scratch/project_2002026/amanda/sampling_oscar/final_balanced_reg_oscar/{lang}.hf',
-                          "dirty": f'/scratch/project_2002026/amanda/sampling_oscar/final_dirty/{lang}.hf'}
+data_dict = lambda lang: {"CORE": f'{lang}.hf',
+                          "hplt": f'{lang}.hf'}
 
 
 options = argparser().parse_args(sys.argv[1:])
-if options.model_name in ["xlmr", "xlmr-long", "bge-m3-new","bge-m3-long"]:
-    assert options.fold is not None, "No fold given for xmlr/xlmr-long/bge-m3-new"
+if options.model_name in ["bge-m3"]:
+    assert options.fold is not None, "No fold given for bge-m3."
 options.model_path = model_dict(options.fold)[options.model_name]
 options.data_path = data_dict(options.language)[options.data_name]
 options.labels = label_dict[options.model_name]
 if options.save_path is None:
-    if options.model_name in["xlmr", "xlmr-long", "bge-m3-new","bge-m3-long"]:
-        options.save_path = f'/scratch/project_2009199/umap-embeddings/model_embeds/{options.data_name}/{options.model_name}-fold-{options.fold}/'
+    if options.fold is not None:
+        options.save_path = f'/scratch/project_462000353/amanda/registers/data/model_embeds/{options.data_name}/{options.model_name}-fold-{options.fold}/'
     else:
-       options.save_path = f'/scratch/project_2009199/umap-embeddings/model_embeds/{options.data_name}/{options.model_name}/' 
+       options.save_path = f'/scratch/project_462000353/amanda/registers/data/model_embeds/{options.data_name}/{options.model_name}/' 
 os.makedirs(options.save_path, exist_ok=True)
 
 num_labels=len(options.labels)
@@ -77,7 +63,6 @@ base_model_name ="xlm-roberta-base"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 dataset = datasets.load_from_disk(options.data_path)
-#dataset = dataset.filter(lambda example, idx: idx % 20 == 0, with_indices=True)
 print(dataset)
 model = AutoModelForSequenceClassification.from_pretrained(options.model_path)
 tokenizer = AutoTokenizer.from_pretrained(base_model_name)
