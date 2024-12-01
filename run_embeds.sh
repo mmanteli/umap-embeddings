@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=embeddings
 #SBATCH --account=project_462000353
-#SBATCH --time=00:30:00
+#SBATCH --time=02:45:00
 #SBATCH --partition=small-g
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=12G
 #SBATCH --gpus-per-node=1
 #SBATCH -o logs/%j.out
 #SBATCH -e logs/%j.err
@@ -21,6 +21,9 @@ case $data_name in
         langs=("en" "fi" "fr" "sv" "tr")
         ;;
     register_oscar)
+        langs=("en" "fr" "ur" "zh")
+        ;;
+    hplt)
         langs=("en" "fr" "ur" "zh")
         ;;
     balanced_register_oscar)

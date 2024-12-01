@@ -40,7 +40,7 @@ model_dict = lambda fold: {"bge-m3":"/scratch/project_462000353/amanda/register-
 label_dict = {"bge-m3":np.array(["MT","LY","SP","ID","NA","HI","IN","OP","IP"])}
 
 data_dict = lambda lang: {"CORE": f'/scratch/project_462000353/amanda/register-clustering/data/datasets/CORE/{lang}.hf',
-                          "hplt": f'{lang}.hf'}
+                          "hplt": f'/scratch/project_462000353/amanda/register-clustering/data/datasets/hplt/{lang}.hf'}
 
 
 options = argparser().parse_args(sys.argv[1:])
