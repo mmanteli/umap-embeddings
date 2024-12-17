@@ -1,5 +1,7 @@
 # Clustering with von Mises-Fisher distribution
 
+Attempt at von Mises-Fisher clustering. Unsuccessful due to package problems. I almost got it working though, so if you want to try, feel free! This has only been attempted on Mahti.
+
 ## Compatibility problems
 
 ``scikit-learn>0.2`` breaks ``spherecluster`` due to ``scikit.cluster.k_means_`` being renamed and moved under a new class. [Here](https://github.com/rfayat/spherecluster/tree/scikit_update) is a fork that claims to fix it, but I did not get it to work (possibly due to the python version problem as described below).
