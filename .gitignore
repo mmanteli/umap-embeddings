@@ -18,3 +18,4 @@ testi*
 spherecluster2
 __pycache__
 metric_plot*
+.venv
